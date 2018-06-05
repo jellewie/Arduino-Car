@@ -308,12 +308,13 @@ void LEDControl() {
   static int pos2;
   static int pos3;
   static int countLed1;
-  static int countLed2;
-
-  static byte TimerLED_Left;                                        //Create a timer (so we can make a delay in the animation
-  if (LED_Left) {                                                   //Turning left
+  bool LED_Left = false;                                              //
+  int DelayAnimationDriving = 30;                                     //Delay in ms for the animation (excluding the write time delay!)
+  int DelayanimationBlink = 15;                                       //Delay in ms for the animation (excluding the write time delay!)
+  static byte TimerLED_Left;                                          //Create a timer (so we can make a delay in the animation
+  if (LED_Left) {                                                     //Turning left
     TimerLED_Left ++;                                               //Add 1 to the timer
-    if (TimerLED_Left > 19) {                                       //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
+    if (TimerLED_Left >= DelayanimationBlink) {                                       //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
       TimerLED_Left = 0;                                            //Reset timer so this code will only be called after another X loops (Aka delay)
       int posLV  = 32;                                              //Value for start of front left turning light
       int posLVL = 25;                                              //Value for length of front left turning Light
@@ -341,10 +342,10 @@ void LEDControl() {
   } else {
     TimerLED_Left = 0;
   }
-  static byte TimerLED_Right;                                           //Create a timer (so we can make a delay in the animation
-  if (LED_Right) {                                                      //Turning right
+  static byte TimerLED_Right;                                         //Create a timer (so we can make a delay in the animation
+  if (LED_Right) {                                                    //Turning right
     TimerLED_Right ++;                                                  //Add 1 to the timer
-    if (TimerLED_Right > 19) {                                          //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
+    if (TimerLED_Right >= DelayanimationBlink) {                                          //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
       TimerLED_Right = 0;                                               //Reset timer so this code will only be called after another X loops (Aka delay)
       int posRV  = 52;                                                  //Value for start of front right turning light
       int posRVL = 25;                                                  //Value for length of front right turning Light
@@ -375,7 +376,7 @@ void LEDControl() {
   static byte TimerLED_Driving;                                         //Create a timer (so we can make a delay in the animation
   if (LED_Driving) {                                                    //Drive Forwards
     TimerLED_Driving ++;                                                //Add 1 to the timer
-    if (TimerLED_Driving > 19) {                                        //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
+    if (TimerLED_Driving >= DelayAnimationDriving) {                                        //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
       TimerLED_Driving = 0;                                             //Reset timer so this code will only be called after another X loops (Aka delay)
       int frontMiddle = 42;                                                                                   //Middle of the front section (middle is between two so it has an offset of 0,5 of course)
       int frontLength = 10;                                                                                   //Half of the length
@@ -396,7 +397,7 @@ void LEDControl() {
   static byte TimerLED_Backwards;                                       //Create a timer (so we can make a delay in the animation
   if (LED_Backwards) {                                                  //Drive Backwards (and check later if we are standing still)
     TimerLED_Backwards ++;                                              //Add 1 to the timer
-    if (TimerLED_Backwards > 19) {                                      //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
+    if (TimerLED_Backwards >= DelayAnimationDriving) {                                      //If we looped 19+ times (aka 1ms/loop = 20ms) (to slow it down so it wont give everyone a pannic attack)
       TimerLED_Backwards = 0;                                           //Reset timer so this code will only be called after another X loops (Aka delay)
       int backMiddle = 126;                                                                                   //Middle of the LED section at the back
       int backLength = 10;                                                                                    //Half of the length
@@ -491,6 +492,7 @@ void LEDControl() {
     UpdateLEDs = false;                                                 //Flag update done
   }
 }
+
 void HeadJelle() {
   //--------------------Jelle's head--------------------
   if (Z > 0) {                                                          //If we need to move backwards
