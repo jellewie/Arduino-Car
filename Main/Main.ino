@@ -74,19 +74,6 @@ uint8_t gHue = 0;                                                   //Rotating "
 bool UpdateLEDs = true;                                             //If the LED color needs to be updated
 bool PcActivity = false;                                            //If we have pc com activity
 bool LED_SensorDebug = false;                                       //If we need to debug the sensors (show sensor data in the LEDs
-//Jelle's head
-int Z = 0;
-const byte SensorLowLimit = 100;                                    //A
-const byte MiniumDifference = 5;                                    //B
-const byte MiniumStepsBackwards = 100;                              //C
-const float DividerSteering = 10;                                   //D
-//end jelle's head
-
-//new led values----------------------------------------------
-int sensorVal[5];
-//--------------------------------------------------------
-
-
 
 void setup() {                                                      //This code runs once on start-up
   delay(1000);                                                      //Just some delay to give some room for error programming
@@ -298,44 +285,49 @@ void EmergencyReleased() {                                          //If the eme
 
 void HeadJelle() {
   //--------------------Jelle's head--------------------
-  if (Z > 0) {                                                          //If we need to move backwards
-    Z--;                                                                //Remove one from Z (Z = amounts of steps to do backwards)
-    EngineGoTo = -1;                                                    //Set engine state, Will be verwritten when false
-    if (PDI_SensorBack > SensorLowLimit) {                              //If there is nothing behind us
-      if (PDI_SensorRight > SensorLowLimit) {                           //If there is nothing right of us
-        RotationGoTo = 0;                                               //Steer left
+  static int Z = 0;
+  static byte SensorLowLimit = 100;                                 //A
+  static byte MiniumDifference = 5;                                 //B
+  static byte MiniumStepsBackwards = 100;                           //C
+  static float DividerSteering = 10;                                //D
+  if (Z > 0) {                                                      //If we need to move backwards
+    Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
+    EngineGoTo = -1;                                                //Set engine state, Will be verwritten when false
+    if (PDI_SensorBack > SensorLowLimit) {                          //If there is nothing behind us
+      if (PDI_SensorRight > SensorLowLimit) {                       //If there is nothing right of us
+        RotationGoTo = 0;                                           //Steer left
       } else {
-        if (PDI_SensorLeft > SensorLowLimit) {                          //If there is nothing left of us
-          RotationGoTo = 180;                                           //Steer right
+        if (PDI_SensorLeft > SensorLowLimit) {                      //If there is nothing left of us
+          RotationGoTo = 180;                                       //Steer right
         } else {
-          EngineGoTo = 0;                                               //Turn engine off
+          EngineGoTo = 0;                                           //Turn engine off
         }
       }
     } else {
-      EngineGoTo = 0;                                                   //Turn engine off (we can't move backwards
+      EngineGoTo = 0;                                               //Turn engine off (we can't move backwards
     }
-  } else if (PDI_SensorLeft > SensorLowLimit and PDI_SensorRight > SensorLowLimit) {  //If there is nothing in front of us
-    int X = PAI_SensorFrontLeft - PAI_SensorFrontRight;                 //Calculate diffrence in sensoren
-    if (abs(X) > MiniumDifference) {                                    //If the change is not to small
+  } else if (PDI_SensorLeft > SensorLowLimit and PDI_SensorRight > SensorLowLimit) { //If there is nothing in front of us
+    int X = PAI_SensorFrontLeft - PAI_SensorFrontRight;             //Calculate diffrence in sensoren
+    if (abs(X) > MiniumDifference) {                                //If the change is not to small
       if ((X > 0 and PDI_SensorLeft > SensorLowLimit) or (X < 0 and PDI_SensorRight > SensorLowLimit)) {  //If there is nothing on that side of us
-        RotationGoTo = Rotation + (X / DividerSteering);                //Steer to that side (with the intensity of 'X/DividerSteering'
+        RotationGoTo = Rotation + (X / DividerSteering);            //Steer to that side (with the intensity of 'X/DividerSteering'
       } else {
-        RotationGoTo = Rotation;                                        //Stop steering
+        RotationGoTo = Rotation;                                    //Stop steering
       }
-      EngineGoTo = 1;                                                   //Turn engine on
+      EngineGoTo = 1;                                               //Turn engine on
     } else {
-      RotationGoTo = Rotation;                                          //Stop steering
-      EngineGoTo = 1;                                                   //Turn engine on
+      RotationGoTo = Rotation;                                      //Stop steering
+      EngineGoTo = 1;                                               //Turn engine on
     }
   } else {
-    Z = MiniumStepsBackwards;                                           //Tell the code that we need to go backwards from now on
+    Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
   }
 
 
-  //  EngineGoInSteps = 1000;                                       //Set the step to do amount
-  //  EngineCurrentStep = EngineGoInSteps;                          //Reset current step
-
-  map(EngineGoTo, -1, 1, -MaxValuePWM, MaxValuePWM);    //Remap to PWM
+  //EngineGoInSteps = 1000;                                   //Set the step to do amount
+  //EngineCurrentStep = EngineGoInSteps;                      //Reset current step
+  //TEMP TODO; ADD PWM CONTROL TO STEERING
+  map(EngineGoTo, -1, 1, -MaxValuePWM, MaxValuePWM);          //Remap to PWM
 }
 
 void LEDControl() {
@@ -365,13 +357,13 @@ void LEDControl() {
       byte PositionLeftFront = 32;                                  //Start of front left turning light
       byte PositionLeftBack = 136;                                  //Start of back left turning light
       byte LeftLength = 25;                                         //Total length
-      fill_solid(&(leds[PositionLeftFront - LeftLength]), LeftLength,  CRGB(0, 0, 0));     //Turn front off
-      fill_solid(&(leds[PositionLeftFront - 2]), 2,                    CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the front section to on so they will always be on if this function is called
+      fill_solid(&(leds[PositionLeftFront - LeftLength]), LeftLength,   CRGB(0, 0, 0));     //Turn front off
+      fill_solid(&(leds[PositionLeftFront - 2]), 2,                     CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the front section to on so they will always be on if this function is called
       fill_solid(&(leds[PositionLeftFront - CounterLeft]), CounterLeft, CRGB(255, 128, 0)); //Will set the increasing front left section
-      fill_solid(&(leds[PositionLeftBack]), LeftLength,                CRGB(0, 0, 0));     //Turn back off
-      fill_solid(&(leds[PositionLeftBack]), 2,                         CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the back section to on so they will always be on if this function is called
-      fill_solid(&(leds[PositionLeftBack]), CounterLeft,               CRGB(255, 128, 0)); //Will set the increasing back left section
-      CounterLeft++;                                                //This will make the front LED section length bigger
+      fill_solid(&(leds[PositionLeftBack]), LeftLength,                 CRGB(0, 0, 0));     //Turn back off
+      fill_solid(&(leds[PositionLeftBack]), 2,                          CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the back section to on so they will always be on if this function is called
+      fill_solid(&(leds[PositionLeftBack]), CounterLeft,                CRGB(255, 128, 0)); //Will set the increasing back left section
+      CounterLeft++;                                                //Add 1 to the timer
       if ((CounterLeft > LeftLength)) {                             //If we are at max lenth
         CounterLeft = 0;                                            //Reset counter
       }
@@ -393,7 +385,7 @@ void LEDControl() {
       fill_solid(&(leds[PositionRightBack - RightLength]), RightLength,   CRGB(0, 0, 0));     //Setting the back section to black
       fill_solid(&(leds[PositionRightBack - 2]), 2,                       CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the back section to on so they will always be on if this function is called
       fill_solid(&(leds[PositionRightBack - CounterRight]), CounterRight, CRGB(255, 128, 0)); //Will set the increasing back right section
-      CounterRight++;                                               //This will make the back LED section length bigger
+      CounterRight++;                                               //Add 1 to the timer
       if ((CounterRight > RightLength)) {                           //If both sections are as big as they can go,
         CounterRight = 0;                                           //And it will reset the back counter
       }
@@ -412,7 +404,7 @@ void LEDControl() {
       fill_solid(&(leds[PositionFrontMiddle - FrontLength]), (FrontLength * 2),                               CRGB(0, 0, 0));   //Setting the section to black
       fill_solid(&(leds[PositionFrontMiddle - (PositionFrontMiddleStatic)]), (PositionFrontMiddleStatic * 2), CRGB(0, 255, 0)); //Setting the static LEDs
       fill_solid(&(leds[PositionFrontMiddle - CounterFront]), (CounterFront * 2),                             CRGB(0, 255, 0)); //Setting the moving LEDs
-      CounterFront++;                                               //increasing the position
+      CounterFront++;                                               //Add 1 to the timer
       if (CounterFront > FrontLength) {                             //If the section is bigger thant the maximum,
         CounterFront = 0;                                           //It will reset the position
       }
@@ -431,7 +423,7 @@ void LEDControl() {
       fill_solid(&(leds[BackMiddle - BackLength]), (BackLength * 2),                CRGB(0, 0, 0));       //Reseting the back strip
       fill_solid(&(leds[BackMiddle - (BackMiddleStatic)]), (BackMiddleStatic * 2),  CRGB(255, 255, 255)); //Setting the static LEDs
       fill_solid(&(leds[BackMiddle - CounterBack]), (CounterBack * 2),              CRGB(255, 255, 255)); //Setting the moving LEDs
-      CounterBack++;                                                //Increasing the position value
+      CounterBack++;                                                //Add 1 to the timer
       if (CounterBack > BackLength) {                               //If the position value is bigger than the maximum,
         CounterBack = 0;                                            //Reset it to 0
       }                                                             //Ending that check
@@ -468,9 +460,9 @@ void LEDControl() {
       }
     }
     if (CounterEmergency >= TotalLeds) {                            //Will check if the main position is bigger than the total
-      CounterEmergency = 0;                                         //If that is the case than it will reset it to 0
+      CounterEmergency = 0;                                         //Reset
     } else {                                                        //Otherwise,
-      CounterEmergency++;                                                       //It will just set it to 0
+      CounterEmergency++;                                           //Add 1 to the timer
     }                                                               //And end the check
     UpdateLEDs = true;                                              //Enabling the send LED data
   }
@@ -484,10 +476,12 @@ void LEDControl() {
     UpdateLEDs = true;                                              //Updating Update value for updating data for the LEDs so they will update at the end of this loop
   }                                                                 //Ending
   if (LED_SensorDebug) {                                            //Sensor debug through status indication LEDs (brightness change at the moment)
-    for (int i = 0; i < 5; i++) {                                   //Loop for going through the different sensor values
-      leds[i] = CRGB(sensorVal[i], 0, 0);                           //Setting values for each Sensor to the LEDs
-    }                                                               //And ending this again
-    UpdateLEDs = true;                                              //Updating the update update updater updating stuff something
+    leds[1] = CRGB(SensorLeft,       0, 0);                         //Setting values for the Sensor to the LEDs
+    leds[2] = CRGB(SensorFrontLeft,  0, 0);                         //^^
+    leds[3] = CRGB(SensorFrontRight, 0, 0);                         //^^
+    leds[4] = CRGB(SensorRight,      0, 0);                         //^^
+    leds[5] = CRGB(SensorBack,       0, 0);                         //^^
+    UpdateLEDs = true;                                              //Update (TODO FIXME[LOW]; can be improved? since we dont need to update every time in theory)
   }                                                                 //And ending again
   if (OverWrite) {                                                  //If the Program is overwritten by an pc (so manual control)
     for (int i = 0; i < (TotalLeds / 5); i++) {                     //At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip [TODO FIXME LOW]
