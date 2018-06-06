@@ -8,7 +8,7 @@
   Change steering, we have a potmeter, and it's now a PWM engine
 
   [MID] LED Overright (full manual control)
-  [LOW] LED Disco mode
+  [LOW] LED Retrieved[3] mode
 
 
 */
@@ -42,10 +42,15 @@ bool LED_Driving = true;
 bool LED_Emergency = false;
 bool PcEverConnected = false;
 bool PcActivity = false;
-bool LED_SensorDebug = false;
+bool LED_SensorDebug = true;
 bool OverWrite = false;
-int Disco = 0;
+byte Retrieved[3] = {0,0,5};
 
+byte SensorFrontLeft = 0;
+byte SensorFrontRight = 60;
+byte SensorRight = 120;
+byte SensorLeft = 180;
+byte SensorBack = 255;
 
 void setup() {                                                      //This code runs once on start-up
   delay(1000);                                                      //Just some delay to give some room for error programming
@@ -58,6 +63,7 @@ void setup() {                                                      //This code 
 }
 
 void loop() {                                                       //Keep looping the next code
+  Serial.println("L");
   sensorVal[0] = analogRead(PAI_SensorFrontLeft);
   sensorVal[1] = analogRead(PAI_SensorFrontRight);
   sensorVal[2] = analogRead(PAI_SensorRight);
@@ -213,9 +219,11 @@ void LEDControl() {
     UpdateLEDs = true;                                              //Updating Update value for updating data for the LEDs so they will update at the end of this loop
   }                                                                 //Ending
   if (LED_SensorDebug) {                                            //Sensor debug through status indication LEDs (brightness change at the moment)
-    for (int i = 0; i < 5; i++) {                                   //Loop for going through the different sensor values
-      leds[i] = CRGB(sensorVal[i], 0, 0);                           //Setting values for each Sensor to the LEDs
-    }                                                               //And ending this again
+    leds[1] = CRGB(SensorLeft,       0, 0);                         //Setting values for the Sensor to the LEDs
+    leds[2] = CRGB(SensorFrontLeft,  0, 0);                         //^^
+    leds[3] = CRGB(SensorFrontRight, 0, 0);                         //^^
+    leds[4] = CRGB(SensorRight,      0, 0);                         //^^
+    leds[5] = CRGB(SensorBack,       0, 0);                         //^^
     UpdateLEDs = true;                                              //Updating the update update updater updating stuff something
   }                                                                 //And ending again
   if (OverWrite) {                                                  //If the Program is overwritten by an pc (so manual control)
@@ -239,7 +247,7 @@ void LEDControl() {
     leds[167] = CRGB(0, 255, 0);
     UpdateLEDs = true;                                              //Updating the LEDs
   }                                                                 //Ending
-  if (Disco == 42) {                                                //If we need an disco (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
+  if (Retrieved[3] == 42) {                                                //If we need an Retrieved[3] (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
   }
   if (UpdateLEDs) {                                                 //If we need an update
     FastLED.show();                                                 //Apply LED changes
