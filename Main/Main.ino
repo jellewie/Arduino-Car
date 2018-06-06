@@ -7,8 +7,10 @@
   Change pin numbers to match Eplan
   Change steering, we have a potmeter, and it's now a PWM engine
 
-
-
+  TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
+  TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
+  TODO FIXME [LOW] can be improved? since we dont need to update every time in theory
+  TODO FIXME [LOW] At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip
 */
 #include "FastLED/FastLED.h"
 #include "interrupt.h"
@@ -38,13 +40,14 @@ const int DelayPole = 50;                                           //The delay 
 const int DelayAncher = 10;                                         //The delay after/for the ancher is turned on
 const int DelayLoop = 15;                                           //The amount of times to wait (arduinoloop)ms [15*1=15ms = 66Hz]
 
-//Just some numbers we need to transfer around
+//Just some numbers we need to transfer around.
+byte Retrieved[3];                                                  //The array where we put the com data in
 byte SensorFrontLeft = 0;                                           //The consitence value of the sensor though the loop
 byte SensorFrontRight = 0;                                          //^^
 byte SensorRight = 0;                                               //^^
 byte SensorLeft = 0;                                                //^^
 byte SensorBack = 0;                                                //^^
-bool Emergency = 0;                                          //The emergency button state
+bool Emergency = 0;                                                 //The emergency button state
 int LoopCounter = 0;                                                //After this many Arduino loops, loop the main code (delay without delay)
 int MSGLoopCounter = 0;                                             //After this many Arduino loops, loop the msg code (delay without delay)
 int Engine = 0;                                                     //Engine status currently
@@ -56,8 +59,6 @@ int EngineCurrentStep = 0;                                          //The curren
 int Rotation = 0;                                                   //The rotation where we are
 int RotationSpeed = 0;                                              //
 int RotationGoTo = 45;                                              //Where to Rotate to
-byte ReadIncomming_1 = 0;                                           //This is th emergency state of the PC(start up with the thought that we are on fire)
-byte Disco = 0;                                                     //If the disco is open or closed
 String LastPCStateRotation = "";                                    //Last steering position sended to the PC, so this is what the PC knows
 String LastPCStateEngine = "";                                      //Last engine position sended to the PC, so this is what the PC knows
 bool OverWrite = false;                                             //If we need to overwrite the self thinking
@@ -79,25 +80,29 @@ void setup() {                                                      //This code 
   delay(1000);                                                      //Just some delay to give some room for error programming
   pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
   pinMode(PDI_SensorBack, INPUT);
-  pinMode(PDI_SensorRight, INPUT);
-  pinMode(PWO_LED, OUTPUT);
-  pinMode(PDO_Emergency, INPUT_PULLUP);
-  pinMode(PDO_Steering_Read, INPUT);
-  pinMode(PDO_Steering, OUTPUT);
-  pinMode(PDO_MotorBrake, OUTPUT);
-  pinMode(PDO_MotorReversePoles, OUTPUT);
-  pinMode(PDO_Motor, OUTPUT);
-  pinMode(PDO_LEDBlink, OUTPUT);
-  pinMode(PAI_SensorFrontLeft, OUTPUT);
-  pinMode(PAI_SensorFrontRight, OUTPUT);
-  FastLED.addLeds<WS2812B, PWO_LED, GRB>(leds, TotalLeds);
+  pinMode(PDI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
+  pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
+  pinMode(PAI_SensorFrontRight, INPUT);                             //^^
+  pinMode(PDO_Emergency, INPUT);                                    //TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
+  pinMode(PDO_Steering_Read, INPUT);                                //^^
+  pinMode(PWO_LED, OUTPUT);                                         //^^
+  pinMode(PDO_Steering, OUTPUT);                                    //^^
+  pinMode(PDO_MotorBrake, OUTPUT);                                  //^^
+  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
+  pinMode(PDO_Motor, OUTPUT);                                       //^^
+  pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
+  FastLED.addLeds<WS2812B, PWO_LED, GRB>(leds, TotalLeds);          //Set the LED type and such
   FastLED.setBrightness(100);                                       //Scale brightness
   fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 0));                 //Set the whole LED strip to be off
   FastLED.show();                                                   //Update the LEDs
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
-  ReadIncomming_1 = 126;                                            //Fake the emergency button from the PC, (just once on boot so when you connect the PC the PC takes this over)
+  Retrieved[0] = 126;                                               //Fake the emergency button from the PC, (just once on boot so when you connect the PC the PC takes this over)
   digitalWrite(PDO_LEDBlink, HIGH);                                 //Let the led blink so we know the program has started
   attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyReleased, FALLING);  //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
+  if (Serial) {                                                     //If there is a Serial connection availible to us
+    PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
+    Serial.println("[!E0]");                                        //Send a 'we did not understand' so the PC will know we are here and see them
+  }
 }
 
 void loop() {                                                       //Keep looping the next cod
@@ -112,30 +117,34 @@ void loop() {                                                       //Keep loopi
     SensorLeft =  analogRead(PAI_SensorLeft);                       //^^
     SensorBack = analogRead(PAI_SensorBack);                        //^^
     if (Serial.available() > 0) {                                   //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
-      PcActivity = true;
+      PcActivity = true;                                            //Set the PcActivity
       PcEverConnected = true;                                       //We have found an PC, so give feedback about states from now on
-      ReadIncomming_1 = Serial.read();                              //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
+      Retrieved[0] = Serial.read();                                 //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
       delay(1);                                                     //Some delay so we are sure we retrieved the data
-      int ReadIncomming_2 = Serial.read();                          //Read next data
+      Retrieved[1] = Serial.read();                                 //Read next data
       delay(1);                                                     //Some delay so we are sure we retrieved the data
-      int ReadIncomming_3 = Serial.parseInt();                      //Read next data (its an int)
-      Disco = Serial.read();                                        //Just useless, but tells the end of the int
-      //Serial.println("1=" + String(ReadIncomming_1) + "." + "\n" + "2=" + String(ReadIncomming_2) + "." + "\n" + "3=" + String(ReadIncomming_3) + ".");//This line is just for debug, to let the Arduino tells us what it recieved
-      if (ReadIncomming_2 == 82) {                                  //If "R" retrieved (rotate)
-        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
-        RotationGoTo = ReadIncomming_3;                             //Set where to rotate to
-      } else if (ReadIncomming_2 == 77) {                           //If "M" retrieved (Motor)
-        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
-        EngineGoTo = ReadIncomming_3;                               //Set the EngineGoTo state
+      Retrieved[2] = Serial.parseInt();                             //Read next data (its an int)
+      delay(1);                                                     //Some delay so we are sure we retrieved the data
+      Retrieved[3] = Serial.read();                                 //Just useless, but tells the end of the int
+      while (Serial.available()) {                                  //If there is still data bunched up (or you accidentally send a line enter "/n/r")
+        Serial.read();                                              //Get the data and trow it in the trash
       }
-      if (ReadIncomming_3 == 68) {                                  //If "D" retrieved (Debig)
+      //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
+      if (Retrieved[1] == 82) {                                     //If "R" retrieved (rotate)
+        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
+        RotationGoTo = Retrieved[2];                                //Set where to rotate to
+      } else if (Retrieved[1] == 77) {                              //If "M" retrieved (Motor)
+        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
+        EngineGoTo = Retrieved[2];                                  //Set the EngineGoTo state
+      }
+      if (Retrieved[2] == 68) {                                     //If "D" retrieved (Debig)
         LED_SensorDebug = !LED_SensorDebug;                         //Toggle Debug mode
       }
       LastPCStateEngine = "";                                       //Fuck up LastPCStateEngine so it will resend it
       LastPCStateRotation = "";                                     //Fuck up LastPCStateRotation so it will resend it
       //We can add more code here to retrieve more commands from the pc
     }
-    if (ReadIncomming_1 != 126 || Emergency == 0) {                 //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
+    if (Retrieved[0] != 126 || Emergency == 0) {                 //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
       //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
       LED_Emergency = true;                                         //Set the emergency LED on
       RotationGoTo = Rotation;                                      //Stop with rotating, keep where ever it is at this moment
@@ -185,7 +194,7 @@ void loop() {                                                       //Keep loopi
           EngineGoInSteps = 1000 ;                                  //Set the step to do amount
           EngineCurrentStep = EngineGoInSteps * 2;                  //Reset current step
         }
-        if (EngineGoInSteps > 0) {                                  //If there still steps ToDo
+        if (EngineGoInSteps > 0) {                                  //If there still steps To Do
           EngineGoInSteps--;                                        //Remove one from the list to do (sice we are doing one now)
           if (digitalRead(PDO_MotorBrake) == HIGH ) {               //If the brake is on
             digitalWrite(PDO_MotorBrake, LOW);                      //Don't brake
@@ -264,7 +273,7 @@ void loop() {                                                       //Keep loopi
       }
     }
     //--------------------LED Control--------------------
-    LEDControl();
+    //LEDControl();
   }
   delay(1);                                                         //Wait some time so the Arduino has free time (and we set arbitrary delays
 }
@@ -281,6 +290,7 @@ void EmergencyReleased() {                                          //If the eme
   }
   digitalWrite(PDO_MotorBrake, HIGH);                               //Brake
   LED_Emergency = true;                                             //Set the emergency LED on
+  Serial.println("!");
 }
 
 void HeadJelle() {
@@ -326,7 +336,7 @@ void HeadJelle() {
 
   //EngineGoInSteps = 1000;                                   //Set the step to do amount
   //EngineCurrentStep = EngineGoInSteps;                      //Reset current step
-  //TEMP TODO; ADD PWM CONTROL TO STEERING
+  //TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
   map(EngineGoTo, -1, 1, -MaxValuePWM, MaxValuePWM);          //Remap to PWM
 }
 
@@ -481,10 +491,10 @@ void LEDControl() {
     leds[3] = CRGB(SensorFrontRight, 0, 0);                         //^^
     leds[4] = CRGB(SensorRight,      0, 0);                         //^^
     leds[5] = CRGB(SensorBack,       0, 0);                         //^^
-    UpdateLEDs = true;                                              //Update (TODO FIXME[LOW]; can be improved? since we dont need to update every time in theory)
+    UpdateLEDs = true;                                              //Update, TODO FIXME [LOW] can be improved? since we dont need to update every time in theory
   }                                                                 //And ending again
   if (OverWrite) {                                                  //If the Program is overwritten by an pc (so manual control)
-    for (int i = 0; i < (TotalLeds / 5); i++) {                     //At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip [TODO FIXME LOW]
+    for (int i = 0; i < (TotalLeds / 5); i++) {                     //TODO FIXME [LOW] At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip
       int vogels1 = i * 5;
       if (vogels1 < TotalLeds) {
         leds[vogels1 - 1] = CRGB(0, 0, 255);
@@ -504,7 +514,7 @@ void LEDControl() {
     leds[167] = CRGB(0, 255, 0);
     UpdateLEDs = true;                                              //Updating the LEDs
   }                                                                 //Ending
-  if (Disco == 42) {                                                //If we need an disco (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
+  if (Retrieved[3] == 42) {                                                //If we need an Retrieved[3] (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
   }
   if (UpdateLEDs) {                                                 //If we need an update
     FastLED.show();                                                 //Apply LED changes
