@@ -1,5 +1,5 @@
 /*
-  Program written by Jelle Wietsma as a school project for the self driving car
+  Program written by JelleWho as a school project for the self driving car
 
 
   =====TODO=====
@@ -9,6 +9,7 @@
 
   TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
   TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
+  TODO FIXME [MID] Change the animation timeing of the LEDS; either make it timebased, or change loop counting (take DelayLoop in to account)
   TODO FIXME [LOW] can be improved? since we dont need to update every time in theory
   TODO FIXME [LOW] At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip
 */
