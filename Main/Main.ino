@@ -77,7 +77,7 @@ bool PcActivity = false;                                            //If we have
 bool LED_SensorDebug = false;                                       //If we need to debug the sensors (show sensor data in the LEDs
 void setup() {                                                      //This code runs once on start-up
   pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
-  pinMode(PDI_SensorBack, INPUT);
+  pinMode(PDI_SensorBack, INPUT);                                   //^^
   pinMode(PDI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
   pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
   pinMode(PAI_SensorFrontRight, INPUT);                             //^^
@@ -91,24 +91,24 @@ void setup() {                                                      //This code 
   pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(leds, TotalLeds);          //Set the LED type and such
-  FastLED.setBrightness(255);                                       //Scale brightness
+  FastLED.setBrightness(10);                                        //Scale brightness
   fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   int timeDelay = 2000;                                             //Delay in ms for the animation
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
-  unsigned long TimeCurrent = 0;                                  //No time has passed since start time
-  while (TimeCurrent < timeDelay) {                               //While we still need to show an animation
-    int x = map(TimeCurrent, 0, timeDelay, 0, TotalLeds);         //Remap value
-    TimeCurrent = millis() - TimeStart;                           //Recalculate current time
+  unsigned long TimeCurrent = 0;                                    //No time has passed since start time
+  while (TimeCurrent < timeDelay) {                                 //While we still need to show an animation
+    int x = map(TimeCurrent, 0, timeDelay, 0, TotalLeds);           //Remap value
+    TimeCurrent = millis() - TimeStart;                             //Recalculate current time
     fill_solid(&(leds[0]), x, CRGB(0, 0, 0));                       //Set X leds to be off
     FastLED.show();                                                 //Update
-    delay(1);
+    delay(1);                                                       //Just some delay (Humans wont know this change, but the arduino likes it)
   }
   fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 0));                 //Set All leds to be off (just to be save
   FastLED.show();                                                   //Update
   Retrieved[0] = 126;                                               //Fake the emergency button from the PC, (just once on boot so when you connect the PC the PC takes this over)
   digitalWrite(PDO_LEDBlink, HIGH);                                 //Let the led blink so we know the program has started
-  attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyReleased, FALLING);  //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
+  attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyReleased, FALLING); //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
   if (Serial) {                                                     //If there is a Serial connection availible to us
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
     Serial.println("[!E0]");                                        //Send a 'we did not understand' so the PC will know we are here and see them
@@ -154,7 +154,7 @@ void loop() {                                                       //Keep loopi
       LastPCStateRotation = "";                                     //Fuck up LastPCStateRotation so it will resend it
       //We can add more code here to retrieve more commands from the pc
     }
-    if (Retrieved[0] != 126 || Emergency == 0) {                 //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
+    if (Retrieved[0] != 126 || Emergency == 0) {                    //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
       //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
       LED_Emergency = true;                                         //Set the emergency LED on
       RotationGoTo = Rotation;                                      //Stop with rotating, keep where ever it is at this moment
@@ -283,9 +283,10 @@ void loop() {                                                       //Keep loopi
       }
     }
     //--------------------LED Control--------------------
-    //LEDControl();
+    LEDControl();
   }
   delay(1);                                                         //Wait some time so the Arduino has free time (and we set arbitrary delays
+  
 }
 
 void EmergencyReleased() {                                          //If the emergency button is pressed (checked 111111/sec?)
@@ -300,7 +301,9 @@ void EmergencyReleased() {                                          //If the eme
   }
   digitalWrite(PDO_MotorBrake, HIGH);                               //Brake
   LED_Emergency = true;                                             //Set the emergency LED on
-  Serial.println("!");
+  if (PcEverConnected){                                             //If a PC has ever been connected
+    Serial.println("[!E0]");                                        //Tell the PC an idiot has pressed the button
+  }
 }
 
 void HeadJelle() {
@@ -456,6 +459,23 @@ void LEDControl() {
       UpdateLEDs = true;                                            //And enabling LED data to be send
     }
   }
+  if (PcEverConnected) {                                            //Pc ever connected
+    leds[5] = CRGB(0, 0, 255);                                      //Status indication LED if pc is connected
+    UpdateLEDs = true;                                              //Updating LED data send
+  }
+  if (PcActivity) {                                                 //Pc activity
+    PcActivity = false;                                             //Reseting PC activity so it can be set again if it has activity
+    leds[5] = CRGB(0, 255, 0);                                      //Making status indication LED different color
+    UpdateLEDs = true;                                              //Updating Update value for updating data for the LEDs so they will update at the end of this loop
+  }
+  if (LED_SensorDebug) {                                            //Sensor debug through status indication LEDs (brightness change at the moment)
+    leds[1] = CRGB(SensorLeft,       0, 0);                         //Setting values for the Sensor to the LEDs
+    leds[2] = CRGB(SensorFrontLeft,  0, 0);                         //^^
+    leds[3] = CRGB(SensorFrontRight, 0, 0);                         //^^
+    leds[4] = CRGB(SensorRight,      0, 0);                         //^^
+    leds[5] = CRGB(SensorBack,       0, 0);                         //^^
+    UpdateLEDs = true;                                              //Updating the update update updater updating stuff something
+  }
   if (LED_Emergency) {                                              //Emergency
     byte EmergencySize = 10;                                        //Length of the sections
     byte EmergencyAmount = 4;                                       //Quantity of the sections
@@ -486,23 +506,6 @@ void LEDControl() {
     }                                                               //And end the check
     UpdateLEDs = true;                                              //Enabling the send LED data
   }
-  if (PcEverConnected) {                                            //Pc ever connected
-    leds[5] = CRGB(0, 0, 255);                                      //Status indication LED if pc is connected
-    UpdateLEDs = true;                                              //Updating LED data send
-  }                                                                 //Ending check
-  if (PcActivity) {                                                 //Pc activity
-    PcActivity = false;                                             //Reseting PC activity so it can be set again if it has activity
-    leds[5] = CRGB(0, 255, 0);                                      //Making status indication LED different color
-    UpdateLEDs = true;                                              //Updating Update value for updating data for the LEDs so they will update at the end of this loop
-  }                                                                 //Ending
-  if (LED_SensorDebug) {                                            //Sensor debug through status indication LEDs (brightness change at the moment)
-    leds[1] = CRGB(SensorLeft,       0, 0);                         //Setting values for the Sensor to the LEDs
-    leds[2] = CRGB(SensorFrontLeft,  0, 0);                         //^^
-    leds[3] = CRGB(SensorFrontRight, 0, 0);                         //^^
-    leds[4] = CRGB(SensorRight,      0, 0);                         //^^
-    leds[5] = CRGB(SensorBack,       0, 0);                         //^^
-    UpdateLEDs = true;                                              //Updating the update update updater updating stuff something
-  }                                                                 //And ending again
   if (OverWrite) {                                                  //If the Program is overwritten by an pc (so manual control)
     for (int i = 0; i < (TotalLeds / 5); i++) {                     //At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip [TODO FIXME LOW]
       int vogels1 = i * 5;
