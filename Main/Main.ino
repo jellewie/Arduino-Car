@@ -40,42 +40,34 @@ const byte PAI_SensorPotmeterStuur = 2;
 const int DelayPole = 50;                                           //The delay after/for the reversement of poles (reverse engine moment)
 const int DelayAncher = 10;                                         //The delay after/for the ancher is turned on
 const int DelayLoop = 15;                                           //The amount of times to wait (arduinoloop)ms [15*1=15ms = 66Hz]
+const int MaxValuePWM = 255;                                        //Max number we can send to the Engine frequency generator
+const int TotalLeds = (48 + 36) * 2;                                //The total amount of LEDS in the strip
 
 //Just some numbers we need to transfer around.
 byte Retrieved[3];                                                  //The array where we put the com data in
-byte SensorFrontLeft = 0;                                           //The consitence value of the sensor though the loop
-byte SensorFrontRight = 0;                                          //^^
-byte SensorRight = 0;                                               //^^
-byte SensorLeft = 0;                                                //^^
-byte SensorBack = 0;                                                //^^
-bool Emergency = 0;                                                 //The emergency button state
-int LoopCounter = 0;                                                //After this many Arduino loops, loop the main code (delay without delay)
-int MSGLoopCounter = 0;                                             //After this many Arduino loops, loop the msg code (delay without delay)
-int Engine = 0;                                                     //Engine status currently
-byte EngineFrom = 0;                                                //Engine status start position
-byte EngineGoTo = 0;                                                //Engine status stop position
-const int MaxValuePWM = 255;                                        //Max number we can send to the Engine frequency generator
-int EngineGoInSteps = 0;                                            //The amount to steps to execute the move in
-int EngineCurrentStep = 0;                                          //The current step we are in
-int Rotation = 0;                                                   //The rotation where we are
-int RotationSpeed = 0;                                              //
-int RotationGoTo = 45;                                              //Where to Rotate to
-String LastPCStateRotation = "";                                    //Last steering position sended to the PC, so this is what the PC knows
-String LastPCStateEngine = "";                                      //Last engine position sended to the PC, so this is what the PC knows
-bool OverWrite = false;                                             //If we need to overwrite the self thinking
+byte SensorFrontLeft;                                               //The consitence value of the sensor though the loop
+byte SensorFrontRight;                                              //^^
+byte SensorRight;                                                   //^^
+byte SensorLeft;                                                    //^^
+byte SensorBack;                                                    //^^
+byte RotationGoTo;                                                  //Rotation status stop position
+byte EngineGoTo;                                                    //Engine status stop position
+byte EngineFrom;                                                    //Engine status start position
+byte RotationFrom;                                                  //Rotation status start position
+bool Emergency;                                                     //The emergency button state
+bool OverWrite = true;                                             //If we need to overwrite the self thinking
 bool PcEverConnected = false;                                       //If we ever found the PC (and need to send the messages)
-
-const int TotalLeds = (48 + 36) * 2;                                //The total amount of LEDS in the strip
-CRGB leds[TotalLeds];                                               //This is an array of leds.  One item for each led in your strip.
+bool PcActivity = false;                                            //If we have pc com activity
+bool LED_SensorDebug = true;                                       //If we need to debug the sensors (show sensor data in the LEDs)
 bool LED_Backwards = false;                                         //If the backwards LEDS needs to be on (if not it forwards)
 bool LED_Left = false;                                              //If the left LEDS needs to be on
 bool LED_Right = false;                                             //If the right LEDS needs to be on
 bool LED_Driving = false;                                           //If the driving LEDS needs to be on (if not we are braking)
 bool LED_Emergency = false;                                         //If the emergency LEDS needs to be on
-uint8_t gHue = 0;                                                   //Rotating "base color" used by many of the patterns
-bool UpdateLEDs = true;                                             //If the LED color needs to be updated
-bool PcActivity = false;                                            //If we have pc com activity
-bool LED_SensorDebug = false;                                       //If we need to debug the sensors (show sensor data in the LEDs
+byte Rotation;                                                      //The rotation where we are
+byte Engine;                                                        //Engine status currently
+CRGB leds[TotalLeds];                                               //This is an array of leds.  One item for each led in your strip.
+
 void setup() {                                                      //This code runs once on start-up
   pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
   pinMode(PDI_SensorBack, INPUT);                                   //^^
@@ -116,7 +108,17 @@ void setup() {                                                      //This code 
   }
 }
 
+
+
 void loop() {                                                       //Keep looping the next code
+  //Just some things we only need in this loop
+  static int LoopCounter;                                           //After this many Arduino loops, loop the main code (delay without delay)
+  static int MSGLoopCounter;                                        //After this many Arduino loops, loop the msg code (delay without delay)
+  static int EngineGoInSteps;                                       //The amount to steps to execute the move in
+  static int EngineCurrentStep;                                     //The current step we are in
+  static int RotationSpeed;                                         //
+  static String LastPCStateRotation = "";                           //Last steering position sended to the PC, so this is what the PC knows
+  static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
   LoopCounter--;                                                    //Remove one from the LoopCounter
   if (LoopCounter <= 0) {                                           //If we need an update (loops every 'DelayLoop' in time, so like every 60 arduino loops (1ms/a peace)
     LoopCounter = DelayLoop;                                        //Reset LoopCounter
@@ -287,7 +289,7 @@ void loop() {                                                       //Keep loopi
     LEDControl();
   }
   delay(1);                                                         //Wait some time so the Arduino has free time (and we set arbitrary delays
-  
+
 }
 
 void EmergencyReleased() {                                          //If the emergency button is pressed (checked 111111/sec?)
@@ -302,7 +304,7 @@ void EmergencyReleased() {                                          //If the eme
   }
   digitalWrite(PDO_MotorBrake, HIGH);                               //Brake
   LED_Emergency = true;                                             //Set the emergency LED on
-  if (PcEverConnected){                                             //If a PC has ever been connected
+  if (PcEverConnected) {                                            //If a PC has ever been connected
     Serial.println("[!E0]");                                        //Tell the PC an idiot has pressed the button
   }
 }
@@ -355,6 +357,7 @@ void HeadJelle() {
 }
 
 void LEDControl() {
+                           
   //60 LEDs/M
   //0.8m x 0.6m = 2.8M omtrek (en 0.48 m² oppervlakte)
   //3M x 60LEDS/M = 180LEDs totaal * (3x20ma) = 10800ma (11A) Powerbank is 26800 dus we kunnen een paar uur op full power!
@@ -362,16 +365,16 @@ void LEDControl() {
   //https://github.com/FastLED/FastLED/wiki/Pixel-reference
   //WS2812 led data takes 30µs per pixel. If you have 100 pixels, then that means interrupts will be disabled for 3000µs, or 3ms.
   //48 x 36 LEDS = 24 <Corner> 36 <> 48 <> 36 <> 24
-  static int CounterEmergency;
-  static byte CounterBack;
-  static byte CounterFront;
-  static byte CounterLeft;
-  static byte CounterRight;
-
+  static bool UpdateLEDs;                                           //If the LED color needs to be updated       
+  static int CounterEmergency;                                      //Just a counter to keep track of the position/length of the animation
+  static byte CounterBack;                                          //^^
+  static byte CounterFront;                                         //^^
+  static byte CounterLeft;                                          //^^
+  static byte CounterRight;                                         //^^
   static byte TimerLED_Left;                                        //Create a timer (so we can make a delay in the animation
-  static byte TimerLED_Right;                                       //Create a timer (so we can make a delay in the animation
-  static byte TimerLED_Driving;                                     //Create a timer (so we can make a delay in the animation
-  static byte TimerLED_Backwards;                                   //Create a timer (so we can make a delay in the animation
+  static byte TimerLED_Right;                                       //^^
+  static byte TimerLED_Driving;                                     //^^
+  static byte TimerLED_Backwards;                                   //^^
   byte DelayAnimationDriving = 30;                                  //Delay in ms for the animation (excluding the write time delay!)
   byte DelayanimationBlink = 30;                                    //Delay in ms for the animation (excluding the write time delay!)
   if (LED_Left) {                                                   //Turning left
@@ -508,18 +511,18 @@ void LEDControl() {
     UpdateLEDs = true;                                              //Enabling the send LED data
   }
   if (OverWrite) {                                                  //If the Program is overwritten by an pc (so manual control)
-    for (int i = 0; i < (TotalLeds / 5); i++) {                     //At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip [TODO FIXME LOW]
-      int vogels1 = i * 5;
-      if (vogels1 < TotalLeds) {
-        leds[vogels1 - 1] = CRGB(0, 0, 255);
-      }
-    }
-    for (int i = 0; i < (TotalLeds / 20); i++) {
-      int vogels2 = i * 20;
-      if (vogels2 < TotalLeds) {
-        leds[vogels2 - 1] = CRGB(255, 0, 0);
-      }
-    }
+//    for (int i = 0; i < (TotalLeds / 5); i++) {                     //At the moment this is a program that will mark al locations of corners and with this enabled it will be easier to measure different parts of the strip [TODO FIXME LOW]
+//      int vogels1 = i * 5;
+//      if (vogels1 < TotalLeds) {
+//        leds[vogels1 - 1] = CRGB(0, 0, 255);
+//      }
+//    }
+//    for (int i = 0; i < (TotalLeds / 20); i++) {
+//      int vogels2 = i * 20;
+//      if (vogels2 < TotalLeds) {
+//        leds[vogels2 - 1] = CRGB(255, 0, 0);
+//      }
+//    }
     fill_solid(&(leds[23]), 2, CRGB(0, 255, 0));
     fill_solid(&(leds[59]), 2, CRGB(0, 255, 0));
     fill_solid(&(leds[107]), 2, CRGB(0, 255, 0));
