@@ -64,7 +64,7 @@ String LastPCStateEngine = "";                                      //Last engin
 bool OverWrite = false;                                             //If we need to overwrite the self thinking
 bool PcEverConnected = false;                                       //If we ever found the PC (and need to send the messages)
 
-const int TotalLeds = 100;                                          //The total amount of LEDS in the strip
+const int TotalLeds = (48 + 36) * 2;                                //The total amount of LEDS in the strip
 CRGB leds[TotalLeds];                                               //This is an array of leds.  One item for each led in your strip.
 bool LED_Backwards = false;                                         //If the backwards LEDS needs to be on (if not it forwards)
 bool LED_Left = false;                                              //If the left LEDS needs to be on
@@ -75,9 +75,7 @@ uint8_t gHue = 0;                                                   //Rotating "
 bool UpdateLEDs = true;                                             //If the LED color needs to be updated
 bool PcActivity = false;                                            //If we have pc com activity
 bool LED_SensorDebug = false;                                       //If we need to debug the sensors (show sensor data in the LEDs
-
 void setup() {                                                      //This code runs once on start-up
-  delay(1000);                                                      //Just some delay to give some room for error programming
   pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
   pinMode(PDI_SensorBack, INPUT);
   pinMode(PDI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
@@ -91,11 +89,23 @@ void setup() {                                                      //This code 
   pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
   pinMode(PDO_Motor, OUTPUT);                                       //^^
   pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
-  FastLED.addLeds<WS2812B, PWO_LED, GRB>(leds, TotalLeds);          //Set the LED type and such
-  FastLED.setBrightness(100);                                       //Scale brightness
-  fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 0));                 //Set the whole LED strip to be off
-  FastLED.show();                                                   //Update the LEDs
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
+  FastLED.addLeds<WS2812B, PWO_LED, GRB>(leds, TotalLeds);          //Set the LED type and such
+  FastLED.setBrightness(255);                                       //Scale brightness
+  fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
+  FastLED.show();                                                   //Update
+  int timeDelay = 2000;                                             //Delay in ms for the animation
+  unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
+  unsigned long TimeCurrent = 0;                                  //No time has passed since start time
+  while (TimeCurrent < timeDelay) {                               //While we still need to show an animation
+    int x = map(TimeCurrent, 0, timeDelay, 0, TotalLeds);         //Remap value
+    TimeCurrent = millis() - TimeStart;                           //Recalculate current time
+    fill_solid(&(leds[0]), x, CRGB(0, 0, 0));                       //Set X leds to be off
+    FastLED.show();                                                 //Update
+    delay(1);
+  }
+  fill_solid(&(leds[0]), TotalLeds, CRGB(0, 0, 0));                 //Set All leds to be off (just to be save
+  FastLED.show();                                                   //Update
   Retrieved[0] = 126;                                               //Fake the emergency button from the PC, (just once on boot so when you connect the PC the PC takes this over)
   digitalWrite(PDO_LEDBlink, HIGH);                                 //Let the led blink so we know the program has started
   attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyReleased, FALLING);  //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
@@ -105,7 +115,7 @@ void setup() {                                                      //This code 
   }
 }
 
-void loop() {                                                       //Keep looping the next cod
+void loop() {                                                       //Keep looping the next code
   LoopCounter--;                                                    //Remove one from the LoopCounter
   if (LoopCounter <= 0) {                                           //If we need an update (loops every 'DelayLoop' in time, so like every 60 arduino loops (1ms/a peace)
     LoopCounter = DelayLoop;                                        //Reset LoopCounter
@@ -514,7 +524,7 @@ void LEDControl() {
     leds[167] = CRGB(0, 255, 0);
     UpdateLEDs = true;                                              //Updating the LEDs
   }
-  if (Retrieved[3] == 42) {                                                //If we need an disco (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
+  if (Retrieved[3] == 42) {                                         //If we need an disco (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
   }
   if (UpdateLEDs) {                                                 //If we need an update
     FastLED.show();                                                 //Apply LED changes

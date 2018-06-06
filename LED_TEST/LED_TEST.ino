@@ -15,7 +15,7 @@
 #include "FastLED/FastLED.h"
 
 //constants won't change. P =Pin. D=digital, A=analog, W=PWM. I=Input, O=Output
-const int PWO_LED = 3;
+const int PWO_LED = 5;
 
 //Just some configuable things
 const int DelayLoop = 15;                                     //The amount of times to wait (arduinoloop)ms [15*1=15ms = 66Hz]
