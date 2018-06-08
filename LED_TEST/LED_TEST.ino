@@ -133,6 +133,7 @@ void LEDControl() {
   static byte TimerLED_Right;                                       //^^
   static byte TimerLED_Driving;                                     //^^
   static byte TimerLED_Backwards;                                   //^^
+  static bool UpdateLEDs;                                           //If the LED color needs to be updated     
   static bool LeftWasOn;                                            //Create a bool so we can reset the LED when its going off
   static bool RightWasOn;                                           //^^
   static bool DrivingWasOn;                                         //^^
