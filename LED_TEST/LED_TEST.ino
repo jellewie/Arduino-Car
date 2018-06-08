@@ -223,6 +223,7 @@ void LEDControl() {
       UpdateLEDs = true;                                            //Update
     }
   } else if (LEDLeftWasOn) {                                        //If the LED now has turned of
+    CounterLeft = 0;                                                //Reset counter
     LEDLeftWasOn = false;                                           //Reset flag so this will trigger only when it happens, not when its off
     fill_solid(&(LEDs[PositionLeftFront - LeftLength]), LeftLength, CRGB(0, 0, 0)); //Clear those LEDs
     fill_solid(&(LEDs[PositionLeftBack]), LeftLength,               CRGB(0, 0, 0)); //Clear those LEDs
@@ -243,11 +244,14 @@ void LEDControl() {
       }
       UpdateLEDs = true;                                            //Update
     }
-  } else if (LEDRightWasOn) {                                       //If the LED now has turned of
-    LEDRightWasOn = false;                                          //Reset flag so this will trigger only when it happens, not when its off
-    fill_solid(&(LEDs[PositionRightFront]), RightLength,                CRGB(0, 0, 0)); //Setting the front section to black
-    fill_solid(&(LEDs[PositionRightBack - RightLength]), RightLength,   CRGB(0, 0, 0)); //Setting the back section to black
-    UpdateLEDs = true;                                              //Update
+  } else {
+    CounterRight = 0;                                               //Reset counter
+    if (LEDRightWasOn) {                                            //If the LED now has turned of
+      LEDRightWasOn = false;                                        //Reset flag so this will trigger only when it happens, not when its off
+      fill_solid(&(LEDs[PositionRightFront]), RightLength,                CRGB(0, 0, 0)); //Setting the front section to black
+      fill_solid(&(LEDs[PositionRightBack - RightLength]), RightLength,   CRGB(0, 0, 0)); //Setting the back section to black
+      UpdateLEDs = true;                                            //Update
+    }
   }
   if (LEDBrakeWasOn and (LED_Driving or LED_Backwards)) {           //If the LED now has turned of
     LEDBrakeWasOn = false;                                          //Reset flag so this will trigger only when it happens, not when its off
@@ -262,14 +266,17 @@ void LEDControl() {
       fill_solid(&(LEDs[PositionFrontMiddle - CounterFront]), (CounterFront * 2),                             CRGB(0, 255, 0)); //Setting the moving LEDs
       CounterFront++;                                               //increasing the position
       if (CounterFront > FrontLength) {                             //If the section is bigger thant the maximum,
-        CounterFront = 0;                                           //It will reset the position
+        CounterFront = 0;                                           //Reset counter
       }
       UpdateLEDs = true;                                            //Update
     }
-  } else if (LEDDrivingWasOn) {                                     //If the LED now has turned of
-    LEDDrivingWasOn = false;                                        //Reset flag so this will trigger only when it happens, not when its off
-    fill_solid(&(LEDs[PositionFrontMiddle - FrontLength]), (FrontLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
-    UpdateLEDs = true;                                              //Update
+  } else {
+    CounterFront = 0;                                               //Reset counter
+    if (LEDDrivingWasOn) {                                          //If the LED now has turned of
+      LEDDrivingWasOn = false;                                      //Reset flag so this will trigger only when it happens, not when its off
+      fill_solid(&(LEDs[PositionFrontMiddle - FrontLength]), (FrontLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
+      UpdateLEDs = true;                                            //Update
+    }
   }
   if (LED_Backwards) {                                              //Drive Backwards (and check later if we are standing still)
     LEDBackwardsWasOn = true;                                       //Flag that the LED is (was) on, so we can turn it off when its going off
@@ -279,11 +286,12 @@ void LEDControl() {
       fill_solid(&(LEDs[BackMiddle - CounterBack]), (CounterBack * 2),              CRGB(255, 255, 255)); //Setting the moving LEDs
       CounterBack++;                                                //Increasing the position value
       if (CounterBack > BackLength) {                               //If the position value is bigger than the maximum,
-        CounterBack = 0;                                            //Reset it to 0
+        CounterBack = 0;                                            //Reset counter
       }                                                             //Ending that check
       UpdateLEDs = true;                                            //Update
     }
   } else {
+    CounterBack = 0;                                                //Reset counter
     if (LEDBackwardsWasOn) {                                        //If the LED now has turned of
       LEDBackwardsWasOn = false;                                    //Reset flag so this will trigger only when it happens, not when its off
       fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
@@ -364,9 +372,9 @@ void LEDControl() {
       poss[i] = CounterEmergency + (EmergencyOffset * i);           //This will calculate each position by adding the offset times the position number to the first position
       int posX;                                                     //This is the variable which will be used for sending position start
       if (poss[i] >= TotalLEDs) {                                   //To see if the position is to bigger than the total amount
-        posX = poss[i] - TotalLEDs;                                 //If that is true then it wil subtract the total amount of LEDs from the position number
+        posX = poss[i] - TotalLEDs;                                 //Subtract the total amount of LEDs from the position number
       } else {                                                      //Otherwise it wil just use the position data without modifying it
-        posX = poss[i];                                             //
+        posX = poss[i];                                             //Just use the position number
       }
       if (posX <= (TotalLEDs - EmergencySize)) {                    //If the whole section ends before the total amount is reached it wil just us the normal way of setting the LEDs
         fill_solid( &(LEDs[posX]), EmergencySize, CRGB(255, 0, 0)); //With the standard fill_solid command from FastLED, LEDs[posX] PosX stands for beginning position, EmergencySize will stand for the size of the sections and the last one is the color
