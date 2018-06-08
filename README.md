@@ -10,3 +10,8 @@ We also have a whopping 2.8 meters of LEDs around the car that is telling us wha
 This file is here for ease of sharing and book keeping, but also for other fellow student who want to read the program and get some ideas how programming for an arduino is.
 
 You can form me if we made a mistake. And you can contact me if information is missing.
+
+
+
+==================================================
+These codes are provided "as is", without warranty or any kind, express or implied, including but not limited to the safety of the code. In no event shall we be liable for any claim, damages, or other liability, nomather the connection or contracts between us. Feel free to use the code and comment and work on it, and dont forget to credits where credit is due.

@@ -26,12 +26,12 @@ uint8_t gHue = 1;                                             //Rotating "base c
 bool UpdateLEDs = true;
 float thistimer;
 
-
-const int PAI_SensorFrontLeft = A0;
-const int PAI_SensorFrontRight = A1;
-const int PAI_SensorRight = A2;
-const int PAI_SensorLeft = A3;
-const int PAI_SensorBack = A4;
+const byte PAI_SensorFrontLeft = A0;
+const byte PAI_SensorFrontRight = A1;
+const byte PAI_SensorRight = A2;
+const byte PAI_SensorLeft = A3;
+const byte PAI_SensorBack = A4;
+const byte PDO_LEDBlink = 13;
 
 int sensorVal[5];
 
@@ -55,7 +55,7 @@ byte SensorBack = 255;
 void setup() {                                                      //This code runs once on start-up
   delay(1000);                                                      //Just some delay to give some room for error programming
   pinMode(PWO_LED, OUTPUT);
-  FastLED.addLEDs<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);
+  FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);
   FastLED.setBrightness(255);                                        //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 0));                 //Completly reset the strip
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
@@ -63,12 +63,19 @@ void setup() {                                                      //This code 
 }
 
 void loop() {                                                       //Keep looping the next code
+  static unsigned long TimeLastTime;                                //The last time we run this code
+  const static unsigned int TimeDelay = 1000 / 60;                  //Delay in ms for the animation (1000/X then X = in Hz)
+  unsigned long TimeCurrent = millis();                             //Get currenttime
+  if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
+    TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
+    digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
+  }
+
   SensorLeft = analogRead(PAI_SensorFrontLeft);
   SensorFrontRight = analogRead(PAI_SensorFrontRight);
   SensorRight = analogRead(PAI_SensorRight);
   SensorLeft = analogRead(PAI_SensorLeft);
   SensorBack = analogRead(PAI_SensorBack);
-
 
   if (Serial.available()) {
     Retrieved[0] = Serial.read();
@@ -133,14 +140,13 @@ void LEDControl() {
   static byte TimerLED_Right;                                       //^^
   static byte TimerLED_Driving;                                     //^^
   static byte TimerLED_Backwards;                                   //^^
-  static bool UpdateLEDs;                                           //If the LED color needs to be updated     
+  static bool UpdateLEDs;                                           //If the LED color needs to be updated
   static bool LeftWasOn;                                            //Create a bool so we can reset the LED when its going off
   static bool RightWasOn;                                           //^^
   static bool DrivingWasOn;                                         //^^
   static bool BackwardsWasOn;                                       //^^
   static bool EmergencyWasOn;                                       //^^
   static bool LEDDebugWasOn;                                        //^^
-  static bool OverwriteWasOn;                                       //^^
   byte DelayAnimationDriving = 30;                                  //Delay in ms for the animation (excluding the write time delay!)
   byte DelayanimationBlink = 30;                                    //^^
   static byte PositionLeftFront = 32;                               //Start of front left turning light
@@ -304,7 +310,7 @@ void LEDControl() {
 
   }
   if (Retrieved[3] == 42) {                                         //If we need an Retrieved[3] (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
-     static byte gHue;                                              //Create a new varabile
+    static byte gHue;                                              //Create a new varabile
     EVERY_N_MILLISECONDS(20) {
       gHue++;                                                       //Slowly cycle the "base color" through the rainbow
     }

@@ -13,10 +13,10 @@
   TODO FIXME [LOW] can be improved? since we dont need to update every time in theory
   TODO FIXME [LOW] At the moment this is a program that will mark al locations of corners and with this enabLED it will be easier to measure different parts of the strip
 */
-#include "FastLED/FastLED.h"
-#include "interrupt.h"
+#include "FastLED/FastLED.h"                                        //Include the FastLED library to control the LEDs in a simple fashion
+#include "interrupt.h"                                              //Include the interrupt file so we can use interupts
 
-//constants won't change. P =Pin. D=digital, A=analog, W=PWM. I=Input, O=Output
+//const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
 const byte PDI_SensorLeft = 2;
 const byte PDI_SensorBack = 3;
 const byte PDI_SensorRight = 4;
@@ -39,34 +39,36 @@ const byte PAI_SensorPotmeterStuur = 2;
 //Just some configuable things
 const int DelayPole = 50;                                           //The delay after/for the reversement of poles (reverse engine moment)
 const int DelayAncher = 10;                                         //The delay after/for the ancher is turned on
-const int DelayLoop = 15;                                           //The amount of times to wait (arduinoloop)ms [15*1=15ms = 66Hz]
+const int DelayLoop = 1;                                            //The amount of times to wait (arduinoloop)ms [15*1=15ms = 66Hz]
 const int MaxValuePWM = 255;                                        //Max number we can send to the Engine frequency generator
 const int TotalLEDs = (48 + 36) * 2;                                //The total amount of LEDS in the strip
 
-//Just some numbers we need to transfer around.
+//Just some numbers we need to transfer around..
+CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
 byte Retrieved[3];                                                  //The array where we put the com data in
 byte SensorFrontLeft;                                               //The consitence value of the sensor though the loop
 byte SensorFrontRight;                                              //^^
 byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
 byte SensorBack;                                                    //^^
-int RotationGoTo;                                                   //Rotation status stop position
-int EngineGoTo;                                                     //Engine status stop position
+
+byte Engine;                                                        //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
-int RotationFrom;                                                   //Rotation status start position
+int EngineGoTo;                                                     //Engine status stop position
+byte Steering;                                                      //Steering PWM value
+int SteeringFrom;                                                   //Steering status start position
+int SteeringGoTo;                                                   //Steering status stop position
+
 bool Emergency;                                                     //The emergency button state
-bool OverWrite = true;                                              //If we need to overwrite the self thinking
-bool PcEverConnected = false;                                       //If we ever found the PC (and need to send the messages)
-bool PcActivity = false;                                            //If we have pc com activity
-bool LED_SensorDebug = true;                                        //If we need to debug the sensors (show sensor data in the LEDs)
-bool LED_Backwards = false;                                         //If the backwards LEDS needs to be on (if not it forwards)
-bool LED_Left = false;                                              //If the left LEDS needs to be on
-bool LED_Right = false;                                             //If the right LEDS needs to be on
-bool LED_Driving = false;                                           //If the driving LEDS needs to be on (if not we are braking)
-bool LED_Emergency = false;                                         //If the emergency LEDS needs to be on
-byte Rotation;                                                      //The rotation where we are
-byte Engine;                                                        //Engine status currently
-CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs.  One item for each LED in your strip.
+bool OverWrite;                                                     //If we need to overwrite the self thinking
+bool PcEverConnected;                                               //If we ever found the PC (and need to send the messages)
+bool PcActivity;                                                    //If we have pc com activity
+bool LED_SensorDebug;                                               //If we need to debug the sensors (show sensor data in the LEDs)
+bool LED_Backwards;                                                 //If the backwards LEDS needs to be on (if not it forwards)
+bool LED_Left;                                                      //If the left LEDS needs to be on
+bool LED_Right;                                                     //If the right LEDS needs to be on
+bool LED_Driving;                                                   //If the driving LEDS needs to be on (if not we are braking)
+bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
   pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
@@ -87,11 +89,11 @@ void setup() {                                                      //This code 
   FastLED.setBrightness(10);                                        //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
-  unsigned int timeDelay = 2000;                                             //Delay in ms for the animation
+  unsigned int TimeDelay = 2000;                                    //Delay in ms for the animation
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
   unsigned long TimeCurrent = 0;                                    //No time has passed since start time
-  while (TimeCurrent < timeDelay) {                                 //While we still need to show an animation
-    int x = map(TimeCurrent, 0, timeDelay, 0, TotalLEDs);           //Remap value
+  while (TimeCurrent < TimeDelay) {                                 //While we still need to show an animation
+    int x = map(TimeCurrent, 0, TimeDelay, 0, TotalLEDs);           //Remap value
     TimeCurrent = millis() - TimeStart;                             //Recalculate current time
     fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                       //Set X LEDs to be off
     FastLED.show();                                                 //Update
@@ -115,12 +117,24 @@ void loop() {                                                       //Keep loopi
   static int LoopCounter;                                           //After this many Arduino loops, loop the main code (delay without delay)
   static int EngineGoInSteps;                                       //The amount to steps to execute the move in
   static int EngineCurrentStep;                                     //The current step we are in
-  static String LastPCStateRotation = "";                           //Last steering position sended to the PC, so this is what the PC knows
+  static String LastPCStateSteering = "";                           //Last steering position sended to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
   LoopCounter--;                                                    //Remove one from the LoopCounter
+
+
+
+
+  static unsigned long TimeLastTime;                                //The last time we run this code
+  const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a osciloscoop is attacked to pin 13, the real loop delay can be 
+  unsigned long TimeCurrent = millis();                             //Get currenttime
+  if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
+    TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
+    digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
+  }
+
+
   if (LoopCounter <= 0) {                                           //If we need an update (loops every 'DelayLoop' in time, so like every 60 arduino loops (1ms/a peace)
     LoopCounter = DelayLoop;                                        //Reset LoopCounter
-    digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
     Emergency = digitalRead(PDO_Emergency);                         //Get emergency button state (we save this so this state is contstand in this loop)
     SensorFrontLeft = analogRead(PAI_SensorFrontLeft);              //Get the sensor data (so ir would be consistance though this loop
     SensorFrontRight = analogRead(PAI_SensorFrontRight);            //^^
@@ -143,7 +157,7 @@ void loop() {                                                       //Keep loopi
       //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
       if (Retrieved[1] == 82) {                                     //If "R" retrieved (rotate)
         OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
-        RotationGoTo = Retrieved[2];                                //Set where to rotate to
+        SteeringGoTo = Retrieved[2];                                //Set where to rotate to
       } else if (Retrieved[1] == 77) {                              //If "M" retrieved (Motor)
         OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
         EngineGoTo = Retrieved[2];                                  //Set the EngineGoTo state
@@ -152,13 +166,13 @@ void loop() {                                                       //Keep loopi
         LED_SensorDebug = !LED_SensorDebug;                         //Toggle Debug mode
       }
       LastPCStateEngine = "";                                       //Fuck up LastPCStateEngine so it will resend it
-      LastPCStateRotation = "";                                     //Fuck up LastPCStateRotation so it will resend it
+      LastPCStateSteering = "";                                     //Fuck up LastPCStateSteering so it will resend it
       //We can add more code here to retrieve more commands from the pc
     }
     if (Retrieved[0] != 126 || Emergency == 0) {                    //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
       //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
       LED_Emergency = true;                                         //Set the emergency LED on
-      RotationGoTo = Rotation;                                      //Stop with rotating, keep where ever it is at this moment
+      SteeringGoTo = Steering;                                      //Stop with rotating, keep where ever it is at this moment
       EngineGoTo = 0;                                               //Set EngineGoTo to 0
     } else {
       LED_Emergency = false;                                        //Set the emergency LED off
@@ -179,9 +193,9 @@ void loop() {                                                       //Keep loopi
         //Use 'EngineGoTo = 0;'  to turn on the engine off
         //Use 'EngineGoTo = -255;' to turn on the engine on but backwards
         //Use 'EngineGoInSteps = Y' to tell the amount of steps to do (when left 0 it will be set to 1K)
-        //Use 'RotationGoTo = X;'  to rotate to X
+        //Use 'SteeringGoTo = X;'  to rotate to X
 
-        //Rotation will happen in increasements of 1 step per loop
+        //Steering will happen in increasements of 1 step per loop
         //Engine will be set directly (with appropriate delay)
         HeadJelle();                                                //Call jelle's head code (change if we want to use a diffrent head
         //--------------------End Head--------------------
@@ -241,28 +255,28 @@ void loop() {                                                       //Keep loopi
       }
     }
     //--------------------Steering control--------------------
-    if (RotationGoTo < 0) {                                         //If we are going to rotate to the left
+    if (SteeringGoTo < 0) {                                         //If we are going to rotate to the left
       LED_Left = true;                                              //Set left LED to be on
-    } else if (RotationGoTo > 0) {                                  //If we are going to rotate to the right
+    } else if (SteeringGoTo > 0) {                                  //If we are going to rotate to the right
       LED_Right = true;                                             //Set right LED to be on
     } else {
       LED_Left = false;                                             //Set left LED bool to off
       LED_Right = false;                                            //Set right LED bool to off
     }
-    if (Rotation != RotationGoTo) {                                 //If we need to steer
-      if (Rotation < RotationGoTo) {                                //If we are going [left] / [right]
+    if (Steering != SteeringGoTo) {                                 //If we need to steer
+      if (Steering < SteeringGoTo) {                                //If we are going [left] / [right]
         if (digitalRead(PDO_SteeringReversePoles) == LOW) {         //If pin is currently low
           digitalWrite(PDO_SteeringReversePoles, HIGH);             //Set pin high
           delay(DelayAncher);                                       //Wait some time to make sure engine is off
         }
-        Rotation = Rotation + 1;                                    //Set the power to rotate
+        Steering = Steering + 1;                                    //Set the power to rotate
         analogWrite(PDO_Steering, HIGH);                            //Write the steering to the steer-pin (will be reseted after this loop, so it would look like a pulse)
       } else {
         if (digitalRead(PDO_SteeringReversePoles) == HIGH) {        //If pin is currently low
           digitalWrite(PDO_SteeringReversePoles, LOW);              //Set pin high
           delay(DelayAncher);                                       //Wait some time to make sure engine is off
         }
-        Rotation = Rotation - 1;                                    //Set the power to rotate
+        Steering = Steering - 1;                                    //Set the power to rotate
         analogWrite(PDO_Steering, HIGH);                            //Write the steering to the steer-pin (will be reseted after this loop, so it would look like a pulse)
       }
     }
@@ -277,10 +291,10 @@ void loop() {                                                       //Keep loopi
         Serial.print(NewPCState);                                   //Write the info to the PC
         LastPCStateEngine = NewPCState;                             //Update what the PC should have
       }
-      NewPCState = "[" + EmergencyButtonState + String("S") + String(RotationGoTo) + "]"; //Create a new state where the pc should be in right now
-      if (LastPCStateRotation != NewPCState) {                      //If the PC state is not what it should be (and the PC needs an update)
+      NewPCState = "[" + EmergencyButtonState + String("S") + String(SteeringGoTo) + "]"; //Create a new state where the pc should be in right now
+      if (LastPCStateSteering != NewPCState) {                      //If the PC state is not what it should be (and the PC needs an update)
         Serial.print(NewPCState);                                   //Write the info to the PC
-        LastPCStateRotation = NewPCState;                           //Update what the PC should have
+        LastPCStateSteering = NewPCState;                           //Update what the PC should have
       }
     }
     //--------------------LED Control--------------------
@@ -293,7 +307,7 @@ void loop() {                                                       //Keep loopi
 void EmergencyReleased() {                                          //If the emergency button is pressed (checked 111111/sec?)
   digitalWrite(PDO_Motor, LOW);                                     //Turn engine off
   Emergency = 0;                                                    //Set the emergency pin to be low (this will tell the rest of the loop this has happened)
-  RotationGoTo = Rotation;                                          //Stop with rotating, keep where ever it is at this moment
+  SteeringGoTo = Steering;                                          //Stop with rotating, keep where ever it is at this moment
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
   if (Engine != EngineGoTo) {                                       //If we are not yet updated (the engine isn't in set state)
     delay(DelayAncher);                                             //Wait some time to make sure engine is off
@@ -319,10 +333,10 @@ void HeadJelle() {
     EngineGoTo = -1;                                                //Set engine state, Will be verwritten when false
     if (PDI_SensorBack > SensorLowLimit) {                          //If there is nothing behind us
       if (PDI_SensorRight > SensorLowLimit) {                       //If there is nothing right of us
-        RotationGoTo = 0;                                           //Steer left
+        SteeringGoTo = 0;                                           //Steer left
       } else {
         if (PDI_SensorLeft > SensorLowLimit) {                      //If there is nothing left of us
-          RotationGoTo = 180;                                       //Steer right
+          SteeringGoTo = 180;                                       //Steer right
         } else {
           EngineGoTo = 0;                                           //Turn engine off
         }
@@ -334,13 +348,13 @@ void HeadJelle() {
     int X = PAI_SensorFrontLeft - PAI_SensorFrontRight;             //Calculate diffrence in sensoren
     if (abs(X) > MiniumDifference) {                                //If the change is not to small
       if ((X > 0 and PDI_SensorLeft > SensorLowLimit) or (X < 0 and PDI_SensorRight > SensorLowLimit)) {  //If there is nothing on that side of us
-        RotationGoTo = Rotation + (X / DividerSteering);            //Steer to that side (with the intensity of 'X/DividerSteering'
+        SteeringGoTo = Steering + (X / DividerSteering);            //Steer to that side (with the intensity of 'X/DividerSteering'
       } else {
-        RotationGoTo = Rotation;                                    //Stop steering
+        SteeringGoTo = Steering;                                    //Stop steering
       }
       EngineGoTo = 1;                                               //Turn engine on
     } else {
-      RotationGoTo = Rotation;                                      //Stop steering
+      SteeringGoTo = Steering;                                      //Stop steering
       EngineGoTo = 1;                                               //Turn engine on
     }
   } else {
@@ -371,7 +385,7 @@ void LEDControl() {
   static byte TimerLED_Right;                                       //^^
   static byte TimerLED_Driving;                                     //^^
   static byte TimerLED_Backwards;                                   //^^
-  static bool UpdateLEDs;                                           //If the LED color needs to be updated     
+  static bool UpdateLEDs;                                           //If the LED color needs to be updated
   static bool LeftWasOn;                                            //Create a bool so we can reset the LED when its going off
   static bool RightWasOn;                                           //^^
   static bool DrivingWasOn;                                         //^^
@@ -541,7 +555,7 @@ void LEDControl() {
 
   }
   if (Retrieved[3] == 42) {                                         //If we need an Retrieved[3] (42 = '*') needs to be written someday, is not very important...  [TODO FIXME LOW]
-     static byte gHue;                                              //Create a new varabile
+    static byte gHue;                                              //Create a new varabile
     EVERY_N_MILLISECONDS(20) {
       gHue++;                                                       //Slowly cycle the "base color" through the rainbow
     }
