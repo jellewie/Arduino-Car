@@ -7,12 +7,13 @@
   Change pin numbers to match Eplan
   Change steering, we have a potmeter, and it's now a PWM engine
 
+  TODO FIXME [HIGH] Add a nice engine PWM down curve
   TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
   TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
-  TODO FIXME [LOW] Update LED only if the array changed
-  TODO FIXME [LOW] Change LED overwrite
+  TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
+  TODO FIXME [LOW] Change LED overwrite (it should display manual control)
 
-  TODO FIXME [MID] when pressing/unpressing emergency it sometimes seems to blink, needs investigation.
+  TODO FIXME [MID] when pressing/unpressing emergency it sometimes seems to blink, needs investigation. This might just be the connection???
 */
 #include "FastLED/FastLED.h"                                        //Include the FastLED library to control the LEDs in a simple fashion
 #include "interrupt.h"                                              //Include the interrupt file so we can use interupts
@@ -55,6 +56,7 @@ byte SensorBack;                                                    //^^
 byte Engine;                                                        //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
 int EngineGoTo;                                                     //Engine status stop position
+
 byte Steering;                                                      //Steering PWM value
 int SteeringFrom;                                                   //Steering status start position
 int SteeringGoTo;                                                   //Steering status stop position
@@ -135,18 +137,20 @@ void loop() {                                                       //Keep loopi
     delay(1);                                                       //Some delay so we are sure we retrieved the data
     Retrieved[2] = Serial.parseInt();                               //Read next data (its an int)
     delay(1);                                                       //Some delay so we are sure we retrieved the data
-    Retrieved[3] = Serial.read();                                  //Just useless, but tells the end of the int
-    while (Serial.available()) {                                    //If there is still data bunched up (or you accidentally send a line enter "/n/r")
-      Serial.read();                                                //Get the data and trow it in the trash
+    Retrieved[3] = Serial.read();                                   //Just useless, but tells the end of the int
+    delay(1);                                                       //Some delay so we are sure we retrieved all the data
+    while (Serial.available() > 0) {                                //If there is still data bunched up (or you accidentally send a line enter "/n/r")
+      Serial.print("[?" + String(Serial.read()) + "]";              //Get the data and trow it in the trash
+                   delay(1);                                                     //Some delay so we are sure we retrieved all the data
     }
     //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
-    if (Retrieved[1] == 82) {                                      //If "R" retrieved (rotate)
+    if (Retrieved[1] == 82) {                                       //If "R" retrieved (rotate)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       SteeringGoTo = Retrieved[2];                                  //Set where to rotate to
     } else if (Retrieved[1] == 77) {                                //If "M" retrieved (Motor)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       EngineGoTo = Retrieved[2];                                    //Set the EngineGoTo state
-    } 
+    }
     if (Retrieved[2] == 68) {                                       //If "D" retrieved (Debig)
       LED_SensorDebug = !LED_SensorDebug;                           //Toggle Debug mode
     }
@@ -198,7 +202,6 @@ void loop() {                                                       //Keep loopi
     }
     digitalWrite(PDO_MotorBrake, HIGH);                             //Brake
   } else {
-    LED_Driving = true;                                             //Set engine LED to be on
     if (Engine != EngineGoTo) {                                     //If we are not yet done
       if (EngineGoInSteps == 0) {                                   //If no step amount is given
         EngineGoInSteps = 1000 ;                                    //Set the step to do amount
@@ -211,31 +214,46 @@ void loop() {                                                       //Keep loopi
           delay(DelayAncher);                                       //Wait some time to make sure engine is off
         }
         if (EngineGoTo > 0) {                                       //If we need to move forward
-          //Go to https://www.desmos.com/calculator and past this:
-          //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
+          LED_Driving = true;                                       //Set forwards driving LED on
+          LED_Backwards = false;                                    //Set backwards driving LED off
           if (digitalRead(PDO_MotorReversePoles) == HIGH) {         //If pin is currently high
             digitalWrite(PDO_MotorReversePoles, LOW);               //Set pin low
             delay(DelayPole);                                       //Wait some time to make sure engine is off
           }
-          if (EngineGoTo == 0) {                                    //If engine needs to be off
-            Engine = 0;                                             //Set engine to be off
-          } else if (Engine < EngineGoTo) {                         //If we need to speed up
-            if (EngineCurrentStep < EngineGoInSteps / 2) {          //If we are starting up
-              Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
-            } else {
-              Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
-            }
-          } else if (Engine > EngineGoTo) {                         //If we need to speed down
-            Engine--;                                               //remove 1 to the engine speed
-          }
-          digitalWrite(PDO_Motor, Engine);                          //Write the value to the engine
-        } else {                                                    //it can not be off [0] and it was not forward, so it's backwards
-          LED_Backwards = true;                                     //Set backwards driving LED to be on
+        } else {                                                    //If we need to move backwards
+          LED_Backwards = true;                                     //Set backwards driving LED on
+          LED_Driving = false;                                      //Set forwards driving LED off
           if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is currently low
             digitalWrite(PDO_MotorReversePoles, HIGH);              //Set pin high
             delay(DelayPole);                                       //Wait some time to make sure engine is off
           }
         }
+        if (abs(Engine) < abs(EngineGoTo)) {                                //If we need to speed up
+          if (EngineCurrentStep < EngineGoInSteps / 2) {          //If we are starting up
+            //Go to https://www.desmos.com/calculator and past this:
+            //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
+            Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
+          } else {
+            Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
+          }
+        } else if (Engine > EngineGoTo) {                         //If we need to speed down
+          Engine--;                                               //remove 1 to the engine speed
+          //TODO FIXME [HIGH] Add a nice engine PWM down curve
+        }
+        digitalWrite(PDO_Motor, Engine);                          //Write the value to the engine
+
+
+
+
+
+
+
+
+
+
+
+
+
       }
     }
   }
@@ -250,10 +268,20 @@ void loop() {                                                       //Keep loopi
   }
   if (Steering != SteeringGoTo) {                                   //If we need to steer
     if (Steering < SteeringGoTo) {                                  //If we are going [left] / [right]
-      if (digitalRead(PDO_SteeringReversePoles) == LOW) {           //If pin is currently low
-        digitalWrite(PDO_SteeringReversePoles, HIGH);               //Set pin high
-        delay(DelayAncher);                                         //Wait some time to make sure engine is off
+      if (SteeringGoInSteps == 0) {                                 //If no step amount is given
+        SteeringGoInSteps = 1000 ;                                  //Set the step to do amount
+        SteeringCurrentStep = SteeringGoInSteps * 2;                //Reset current step
       }
+      if (SteeringGoTo > 0) {
+        if (digitalRead(PDO_SteeringReversePoles) == HIGH) {        //If pin is currently low
+          digitalWrite(PDO_SteeringReversePoles, LOW);              //Set pin high
+          delay(DelayAncher);                                       //Wait some time to make sure engine is off
+        }
+      }
+
+
+
+
       Steering = Steering + 1;                                      //Set the power to rotate
       analogWrite(PDO_Steering, HIGH);                              //Write the steering to the steer-pin (will be reseted after this loop, so it would look like a pulse)
     } else {
