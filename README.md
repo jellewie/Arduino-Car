@@ -14,4 +14,5 @@ You can form me if we made a mistake. And you can contact me if information is m
 
 
 ==================================================
+
 These codes are provided "as is", without warranty or any kind, express or implied, including but not limited to the safety of the code. In no event shall we be liable for any claim, damages, or other liability, nomather the connection or contracts between us. Feel free to use the code and comment and work on it, and dont forget to credits where credit is due.
