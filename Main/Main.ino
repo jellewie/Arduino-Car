@@ -197,7 +197,6 @@ void loop() {                                                       //Keep loopi
   LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
     LED_Driving = false;                                            //Set engine LED to be off
-    analogWrite(PWO_Motor, LOW);                                    //Turn engine off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
       digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine off
       delay(DelayAncher);                                           //Wait some time to make sure engine is off
@@ -205,6 +204,10 @@ void loop() {                                                       //Keep loopi
       EngineFrom = Engine;                                          //Set current engine state to be the new state to start engine fom
     }
   } else {
+    if (digitalRead(PWO_Motor) == LOW ) {                           //If the engine is off
+      digitalWrite(PWO_Motor, HIGH);                                //Turn engine HOT
+      delay(DelayPole);                                             //Wait some time to make sure engine is HOT (and save)
+    }
     if (Engine != EngineGoTo) {                                     //If we are not yet done
       if (EngineGoInSteps == 0) {                                   //If no step amount is given
         EngineGoInSteps = 1000 ;                                    //Set the step to do amount
@@ -272,15 +275,15 @@ void loop() {                                                       //Keep loopi
     }
     Steering = (510 - SensorFrontLeft + SensorFrontRight) / 2;      //Set the speed to be the amount of free space between the sensors
   }
-  if (steering == 0) {
-    if (digitalWrite(PDO_SteeringOnOff, HIGH) {                     //If pin is HIGH
-    digitalWrite(PDO_SteeringOnOff, LOW);                           //Set pin LOW
-      delay(DelayPoles);                                            //Wait some time to make sure engine is off
+  if (Steering == 0) {
+    if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If pin is HIGH
+      digitalWrite(PDO_SteeringOnOff, LOW);                         //Set pin LOW
+      delay(DelayPole);                                             //Wait some time to make sure steeringengine is HOT (and save)
     }
   } else {
-    if (digitalWrite(PDO_SteeringOnOff, LOW) {                      //If pin is LOW
-    digitalWrite(PDO_SteeringOnOff, HIGH);                          //Set pin HIGH
-      delay(DelayPoles);                                            //Wait some time to make sure engine is off
+    if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If pin is LOW
+      digitalWrite(PDO_SteeringOnOff, HIGH);                        //Set pin HIGH
+      delay(DelayPole);                                             //Wait some time to make sure steering engine is HOT (and save)
     }
   }
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
