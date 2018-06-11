@@ -113,11 +113,16 @@ void loop() {                                                       //Keep loopi
   //Just some things we only need in this loop
   static int EngineGoInSteps;                                       //The amount to steps to execute the move in
   static int EngineCurrentStep;                                     //The current step we are in
+  static int SteeringGoInSteps;                                     //The amount to steps to execute the move in
+  static int SteeringCurrentStep;                                   //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position sended to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
   static unsigned long TimeLastTime;                                //The last time we run this code
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a osciloscoop is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent = millis();                             //Get currenttime
+  unsigned long EmergencyEndTime = 1;                               //A timer to keep the Emergency active for some time (just to remove hickups in the contact) if not 0 we need to wait this amount of ms
+  unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
+
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
     TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
@@ -140,55 +145,71 @@ void loop() {                                                       //Keep loopi
     Retrieved[3] = Serial.read();                                   //Just useless, but tells the end of the int
     delay(1);                                                       //Some delay so we are sure we retrieved all the data
     while (Serial.available() > 0) {                                //If there is still data bunched up (or you accidentally send a line enter "/n/r")
-      Serial.print("[?" + String(Serial.read()) + "]";              //Get the data and trow it in the trash
-                   delay(1);                                                     //Some delay so we are sure we retrieved all the data
+      Serial.print("[?" + String(Serial.read()) + "]");             //Get the data and trow it in the trash
+      delay(1);                                                     //Some delay so we are sure we retrieved all the data
     }
     //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
-    if (Retrieved[1] == 82) {                                       //If "R" retrieved (rotate)
+    if (Retrieved[1] == 82) {                                       //If "R" retrieved (Rotate)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       SteeringGoTo = Retrieved[2];                                  //Set where to rotate to
     } else if (Retrieved[1] == 77) {                                //If "M" retrieved (Motor)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       EngineGoTo = Retrieved[2];                                    //Set the EngineGoTo state
-    }
-    if (Retrieved[2] == 68) {                                       //If "D" retrieved (Debig)
+    } else if (Retrieved[1] == 65) {                                //If "A" retrieved (Auto mode)
+      OverWrite = false;                                            //reset OverWrite state (Arduino things by itzelf again)
+    } else if (Retrieved[1] == 68) {                                //If "D" retrieved (Debug)
       LED_SensorDebug = !LED_SensorDebug;                           //Toggle Debug mode
     }
     LastPCStateEngine = "";                                         //Fuck up LastPCStateEngine so it will resend it
     LastPCStateSteering = "";                                       //Fuck up LastPCStateSteering so it will resend it
-    //We can add more code here to retrieve more commands from the pc
   }
   if (Retrieved[0] != 126 || Emergency == 0) {                      //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
     //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
     LED_Emergency = true;                                           //Set the emergency LED on
     SteeringGoTo = Steering;                                        //Stop with rotating, keep where ever it is at this moment
     EngineGoTo = 0;                                                 //Set EngineGoTo to 0
+    EmergencyEndTime = 0;
   } else {
-    LED_Emergency = false;                                          //Set the emergency LED off
-    if (OverWrite) {                                                //If the Arduino doesn't need to think (user input overwrite)
-      //OverWrite = false;                                          //reset OverWrite state (disabLED so it's player input only from now on)
-    } else {
-      //Add code here to control the Engine and steering
-
-      //Input
-      //use PAI_SensorFrontLeft for the state of SensorFrontLeft
-      //use PAI_SensorFrontRight for the state of SensorFrontRight
-      //use PDI_SensorLeft for the state of SensorLeft
-      //use PDI_SensorBack for the state of SensorBack
-      //use PDI_SensorRight for the state of SensorRight
-
-      //Output
-      //Use 'EngineGoTo = 255;'  to turn on the engine on
-      //Use 'EngineGoTo = 0;'  to turn on the engine off
-      //Use 'EngineGoTo = -255;' to turn on the engine on but backwards
-      //Use 'EngineGoInSteps = Y' to tell the amount of steps to do (when left 0 it will be set to 1K)
-      //Use 'SteeringGoTo = X;'  to rotate to X
-
-      //Steering will happen in increasements of 1 step per loop
-      //Engine will be set directly (with appropriate delay)
-      HeadJelle();                                                 //Call jelle's head code (change if we want to use a diffrent head
-      //--------------------End Head--------------------
+    if (EmergencyEndTime == 0) {                                           //If we havn't yet began
+      EmergencyEndTime = millis() + EmergencyTimeDelay;             //Set timer so we will wait X ms for the Emergency button to be unpressed (just to make sure we are ready to be turned on again, and it's not a hickup)
+      fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 255, 255));         //Set the whole LED strip to be yellow (Emergency released animation)
+      FastLED.show();                                               //Update
     }
+    TimeCurrent = millis();                                         //No time has passed since start time
+    if (TimeCurrent < EmergencyEndTime) {                           //If we still need to wait a bit (just to make sure we are ready to be turned on again, and it's not a hickup)
+      int x = map(TimeCurrent, 0, EmergencyTimeDelay, 0, TotalLEDs);//Remap value
+      fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                     //Set X LEDs to be off
+      FastLED.show();                                               //Update
+    }
+    else {
+      LED_Emergency = false;                                        //Set the emergency LED off
+      if (!OverWrite) {                                             //If the Arduino needs to think (not user input overwrite)
+        //Add code here to control the Engine and steering
+
+        //Input
+        //use PAI_SensorFrontLeft for the state of SensorFrontLeft
+        //use PAI_SensorFrontRight for the state of SensorFrontRight
+        //use PDI_SensorLeft for the state of SensorLeft
+        //use PDI_SensorBack for the state of SensorBack
+        //use PDI_SensorRight for the state of SensorRight
+
+        //Output
+        //Use 'EngineGoTo = 255;'  to turn on the engine on
+        //Use 'EngineGoTo = 0;'  to turn on the engine off
+        //Use 'EngineGoTo = -255;' to turn on the engine on but backwards
+        //Use 'EngineGoInSteps = Y' to tell the amount of steps to do (when left 0 it will be set to 1K)
+        //Use 'SteeringGoTo = X;'  to rotate to X
+        HeadJelle();                                                  //Call jelle's head code (change if we want to use a diffrent head
+        //--------------------End Head--------------------
+      }
+    }
+
+
+
+
+
+
+
   }
   //--------------------Engine control--------------------
   LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
@@ -223,37 +244,24 @@ void loop() {                                                       //Keep loopi
         } else {                                                    //If we need to move backwards
           LED_Backwards = true;                                     //Set backwards driving LED on
           LED_Driving = false;                                      //Set forwards driving LED off
-          if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is currently low
+          if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is currently low6++9+++
             digitalWrite(PDO_MotorReversePoles, HIGH);              //Set pin high
             delay(DelayPole);                                       //Wait some time to make sure engine is off
           }
         }
-        if (abs(Engine) < abs(EngineGoTo)) {                                //If we need to speed up
-          if (EngineCurrentStep < EngineGoInSteps / 2) {          //If we are starting up
+        if (abs(Engine) < abs(EngineGoTo)) {                        //If we need to speed up
+          if (EngineCurrentStep < EngineGoInSteps / 2) {            //If we are starting up
             //Go to https://www.desmos.com/calculator and past this:
             //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
             Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
           } else {
             Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
           }
-        } else if (Engine > EngineGoTo) {                         //If we need to speed down
-          Engine--;                                               //remove 1 to the engine speed
+        } else if (Engine > EngineGoTo) {                           //If we need to speed down
+          Engine--;                                                 //remove 1 to the engine speed
           //TODO FIXME [HIGH] Add a nice engine PWM down curve
         }
-        digitalWrite(PDO_Motor, Engine);                          //Write the value to the engine
-
-
-
-
-
-
-
-
-
-
-
-
-
+        digitalWrite(PDO_Motor, Engine);                            //Write the value to the engine
       }
     }
   }
@@ -343,7 +351,7 @@ void HeadJelle() {
     EngineGoTo = -1;                                                //Set engine state, Will be verwritten when false
     if (PDI_SensorBack > SensorLowLimit) {                          //If there is nothing behind us
       if (PDI_SensorRight > SensorLowLimit) {                       //If there is nothing right of us
-        SteeringGoTo = 0;                                           //Steer left
+        SteeringGoTo = 0;                                           //Steer left+
       } else {
         if (PDI_SensorLeft > SensorLowLimit) {                      //If there is nothing left of us
           SteeringGoTo = 180;                                       //Steer right
