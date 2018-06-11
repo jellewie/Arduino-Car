@@ -14,24 +14,21 @@
 #include "interrupt.h"                                              //Include the interrupt file so we can use interupts
 
 //const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
-const byte PDI_SensorLeft = 2;
-const byte PDI_SensorBack = 3;
-const byte PDI_SensorRight = 4;
 const byte PWO_LED = 5;
+const byte PWO_Motor = 6;
+const byte PWO_Steering = 7;
 const byte PDO_LEDBlink = 13;
-const byte PDO_Emergency = 23;
-const byte PDO_Steering_Read = 25;
-const byte PDO_SteeringReversePoles = 27;
-const byte PDO_Steering = 29;
-const byte PDO_MotorBrake = 31;
-const byte PDO_MotorReversePoles = 33;
-const byte PDO_Motor = 35;
+const byte PDO_SteeringReversePoles = 23;
+const byte PDO_SteeringOnOff = 25;
+const byte PDO_MotorReversePoles = 29;
+const byte PDO_MotorOnOff = 31;
+const byte PDO_Emergency = 53;
 const byte PAI_SensorFrontLeft = A0;
 const byte PAI_SensorFrontRight = A1;
 const byte PAI_SensorRight = A2;
-const byte PAI_SensorLeft = A3;
-const byte PAI_SensorBack = A4;
-const byte PAI_SensorPotmeterStuur = 2;
+const byte PAI_SensorBack = A3;
+const byte PAI_SensorLeft = A4;
+const byte PAI_SensorPotmeterStuur = A5;
 
 //Just some configuable things
 const int DelayPole = 50;                                           //The delay after/for the reversement of poles (reverse engine moment)
@@ -67,19 +64,19 @@ bool LED_Driving;                                                   //If the dri
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
-  pinMode(PDI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
-  pinMode(PDI_SensorBack, INPUT);                                   //^^
-  pinMode(PDI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
+  pinMode(PAI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
+  pinMode(PAI_SensorBack, INPUT);                                   //^^
+  pinMode(PAI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
   pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
   pinMode(PAI_SensorFrontRight, INPUT);                             //^^
   pinMode(PDO_Emergency, INPUT);                                    //TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
-  pinMode(PDO_Steering_Read, INPUT);                                //^^
-  pinMode(PWO_LED, OUTPUT);                                         //^^
-  pinMode(PDO_Steering, OUTPUT);                                    //^^
-  pinMode(PDO_MotorBrake, OUTPUT);                                  //^^
-  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
-  pinMode(PDO_Motor, OUTPUT);                                       //^^
+  pinMode(PWO_Motor, OUTPUT);                                       //^^
+  pinMode(PWO_Steering, OUTPUT);                                    //^^
   pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
+  pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
+  pinMode(PDO_SteeringOnOff, OUTPUT);                               //^^
+  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
+  pinMode(PDO_MotorOnOff, OUTPUT);                                  //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
   FastLED.setBrightness(255);                                       //Scale brightness
@@ -107,8 +104,6 @@ void loop() {                                                       //Keep loopi
   //Just some things we only need in this loop
   static int EngineGoInSteps;                                       //The amount to steps to execute the move in
   static int EngineCurrentStep;                                     //The current step we are in
-  static int SteeringGoInSteps;                                     //The amount to steps to execute the move in
-  static int SteeringCurrentStep;                                   //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position sended to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
   static unsigned long TimeLastTime;                                //The last time we run this code
@@ -202,13 +197,13 @@ void loop() {                                                       //Keep loopi
   LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
     LED_Driving = false;                                            //Set engine LED to be off
+    analogWrite(PWO_Motor, LOW);                                    //Turn engine off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
-      digitalWrite(PDO_Motor, LOW);                                 //Turn engine off
+      digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine off
       delay(DelayAncher);                                           //Wait some time to make sure engine is off
       Engine = EngineGoTo;                                          //Update the engine state
       EngineFrom = Engine;                                          //Set current engine state to be the new state to start engine fom
     }
-    digitalWrite(PDO_MotorBrake, HIGH);                             //Brake
   } else {
     if (Engine != EngineGoTo) {                                     //If we are not yet done
       if (EngineGoInSteps == 0) {                                   //If no step amount is given
@@ -217,22 +212,22 @@ void loop() {                                                       //Keep loopi
       }
       if (EngineGoInSteps > 0) {                                    //If there still steps To Do
         EngineGoInSteps--;                                          //Remove one from the list to do (sice we are doing one now)
-        if (digitalRead(PDO_MotorBrake) == HIGH ) {                 //If the brake is on
-          digitalWrite(PDO_MotorBrake, LOW);                        //Don't brake
+        if (digitalRead(PDO_SteeringOnOff) == HIGH ) {                 //If the brake is on
+          digitalWrite(PDO_SteeringOnOff, LOW);                        //Don't brake
           delay(DelayAncher);                                       //Wait some time to make sure engine is off
         }
         if (EngineGoTo > 0) {                                       //If we need to move forward
           LED_Driving = true;                                       //Set forwards driving LED on
           LED_Backwards = false;                                    //Set backwards driving LED off
-          if (digitalRead(PDO_MotorReversePoles) == HIGH) {         //If pin is currently high
-            digitalWrite(PDO_MotorReversePoles, LOW);               //Set pin low
+          if (digitalRead(PDO_MotorReversePoles) == HIGH) {         //If pin is HIGH
+            digitalWrite(PDO_MotorReversePoles, LOW);               //Set pin LOW
             delay(DelayPole);                                       //Wait some time to make sure engine is off
           }
         } else {                                                    //If we need to move backwards
           LED_Backwards = true;                                     //Set backwards driving LED on
           LED_Driving = false;                                      //Set forwards driving LED off
-          if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is currently low6++9+++
-            digitalWrite(PDO_MotorReversePoles, HIGH);              //Set pin high
+          if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is LOW
+            digitalWrite(PDO_MotorReversePoles, HIGH);              //Set pin HIGH
             delay(DelayPole);                                       //Wait some time to make sure engine is off
           }
         }
@@ -248,7 +243,7 @@ void loop() {                                                       //Keep loopi
           Engine--;                                                 //remove 1 to the engine speed
           //TODO FIXME [HIGH] Add a nice engine PWM down curve
         }
-        digitalWrite(PDO_Motor, Engine);                            //Write the value to the engine
+        analogWrite(PWO_Motor, Engine);                             //Write the value to the engine
       }
     }
   }
@@ -265,19 +260,30 @@ void loop() {                                                       //Keep loopi
     Steering = 0;                                                   //Stop stearing engine
   } else {
     if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
-      if (digitalRead(PDO_SteeringReversePoles) == HIGH) {          //If pin is currently HIGH
-        digitalWrite(PDO_SteeringReversePoles, LOW);                //Set pin L
+      if (digitalRead(PDO_SteeringReversePoles) == HIGH) {          //If pin is HIGH
+        digitalWrite(PDO_SteeringReversePoles, LOW);                //Set pin LOW
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
     } else {                                                        //If we go left (Not right, not straight; so left)
-      if (digitalRead(PDO_SteeringReversePoles) == LOW) {           //If pin is currently LOW
+      if (digitalRead(PDO_SteeringReversePoles) == LOW) {           //If pin is LOW
         digitalWrite(PDO_SteeringReversePoles, HIGH);               //Set pin HIGH
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
     }
     Steering = (510 - SensorFrontLeft + SensorFrontRight) / 2;      //Set the speed to be the amount of free space between the sensors
   }
-  digitalWrite(PDO_Steering, Steering);                             //Write the value to the engine
+  if (steering == 0) {
+    if (digitalWrite(PDO_SteeringOnOff, HIGH) {                     //If pin is HIGH
+    digitalWrite(PDO_SteeringOnOff, LOW);                           //Set pin LOW
+      delay(DelayPoles);                                            //Wait some time to make sure engine is off
+    }
+  } else {
+    if (digitalWrite(PDO_SteeringOnOff, LOW) {                      //If pin is LOW
+    digitalWrite(PDO_SteeringOnOff, HIGH);                          //Set pin HIGH
+      delay(DelayPoles);                                            //Wait some time to make sure engine is off
+    }
+  }
+  analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
     String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwriten if its save)
@@ -299,20 +305,21 @@ void loop() {                                                       //Keep loopi
   LEDControl();
 }
 int SteeringReadNow() {
-  return map(analogRead(PDO_Steering_Read), 0, 255, -127, 127);     //Read and remap potmeter, and send it back to the caller
+  return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap potmeter, and send it back to the caller
 }
 
 void EmergencyReleased() {                                          //If the emergency button is pressed (checked 111111/sec?)
-  digitalWrite(PDO_Motor, LOW);                                     //Turn engine off
   Emergency = 0;                                                    //Set the emergency pin to be low (this will tell the rest of the loop this has happened)
   SteeringGoTo = SteeringReadNow();                                 //Stop with rotating, keep where ever it is at this moment
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
-  if (Engine != EngineGoTo) {                                       //If we are not yet updated (the engine isn't in set state)
+  LED_Driving = false;                                              //Set engine LED to be off
+  analogWrite(PWO_Motor, LOW);                                      //Turn engine off
+  if (Engine != EngineGoTo) {                                       //If we are not yet updated
+    digitalWrite(PDO_MotorOnOff, LOW);                              //Turn engine off
     delay(DelayAncher);                                             //Wait some time to make sure engine is off
     Engine = EngineGoTo;                                            //Update the engine state
     EngineFrom = Engine;                                            //Set current engine state to be the new state to start engine fom
   }
-  digitalWrite(PDO_MotorBrake, HIGH);                               //Brake
   LED_Emergency = true;                                             //Set the emergency LED on
   if (PcEverConnected) {                                            //If a PC has ever been connected
     Serial.println("[!E0]");                                        //Tell the PC an idiot has pressed the button
