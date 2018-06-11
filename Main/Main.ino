@@ -3,16 +3,12 @@
 
 
   =====TODO=====
-  Test engine numbers (printline and send some values so we can see if its curving)
-  Change pin numbers to match Eplan
-  Change steering, we have a potmeter, and it's now a PWM engine
-
+  TODO FIXME [HIGH] Change pin numbers to match Eplan
   TODO FIXME [MID] Add a nice engine PWM down curve
   TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
-  TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
-  TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+  //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
 */
 #include "FastLED/FastLED.h"                                        //Include the FastLED library to control the LEDs in a simple fashion
 #include "interrupt.h"                                              //Include the interrupt file so we can use interupts
@@ -126,15 +122,15 @@ void loop() {                                                       //Keep loopi
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
   Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contstand in this loop)
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255), 0, 0); //Get the sensor data (so it would be consistance though this loop) (There being remapped to the max of a byte range)
-  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255), 0, 0); //^^
-  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255), 0, 0); //^^
-  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255), 0, 0); //^^
-  SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255), 0, 0); //^^
+  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistance though this loop) (There being remapped to the max of a byte range)
+  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
+  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
+  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
+  SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
-  PcActivity = true;                                                //Set the PcActivity
-  PcEverConnected = true;                                           //We have found an PC, so give feedback about states from now on
-  Retrieved[0] = Serial.read();                                     //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
+    PcActivity = true;                                              //Set the PcActivity
+    PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
+    Retrieved[0] = Serial.read();                                   //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
     delay(1);                                                       //Some delay so we are sure we retrieved the data
     Retrieved[1] = Serial.read();                                   //Read next data
     delay(1);                                                       //Some delay so we are sure we retrieved the data
@@ -162,13 +158,13 @@ void loop() {                                                       //Keep loopi
     LastPCStateSteering = "";                                       //Fuck up LastPCStateSteering so it will resend it
   }
   if (Retrieved[0] != 126 || Emergency == 0) {                      //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
-  //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
-  LED_Emergency = true;                                           //Set the emergency LED on
-  SteeringGoTo = Steering;                                        //Stop with rotating, keep where ever it is at this moment
-  EngineGoTo = 0;                                                 //Set EngineGoTo to 0
-  EmergencyEndTime = 0;
-} else {
-  if (EmergencyEndTime == 0) {                                           //If we havn't yet began
+    //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
+    LED_Emergency = true;                                           //Set the emergency LED on
+    SteeringGoTo = SteeringReadNow();                               //Stop with rotating, keep where ever it is at this moment
+    EngineGoTo = 0;                                                 //Set EngineGoTo to 0
+    EmergencyEndTime = 0;                                           //Reset so the Eergency button will keep being active for X time after released
+  } else {
+    if (EmergencyEndTime == 0) {                                    //If we havn't yet began
       EmergencyEndTime = millis() + EmergencyTimeDelay;             //Set timer so we will wait X ms for the Emergency button to be unpressed (just to make sure we are ready to be turned on again, and it's not a hickup)
       fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 255, 255));         //Set the whole LED strip to be yellow (Emergency released animation)
       FastLED.show();                                               //Update
@@ -197,7 +193,7 @@ void loop() {                                                       //Keep loopi
         //Use 'EngineGoTo = -255;' to turn on the engine on but backwards
         //Use 'EngineGoInSteps = Y' to tell the amount of steps to do (when left 0 it will be set to 1K)
         //Use 'SteeringGoTo = X;'  to rotate to X
-        HeadJelle();                                                  //Call jelle's head code (change if we want to use a diffrent head
+        HeadJelle();                                                //Call jelle's head code (change if we want to use a diffrent head
         //--------------------End Head--------------------
       }
     }
@@ -205,8 +201,8 @@ void loop() {                                                       //Keep loopi
   //--------------------Engine control--------------------
   LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
-  LED_Driving = false;                                            //Set engine LED to be off
-  if (Engine != EngineGoTo) {                                     //If we are not yet updated
+    LED_Driving = false;                                            //Set engine LED to be off
+    if (Engine != EngineGoTo) {                                     //If we are not yet updated
       digitalWrite(PDO_Motor, LOW);                                 //Turn engine off
       delay(DelayAncher);                                           //Wait some time to make sure engine is off
       Engine = EngineGoTo;                                          //Update the engine state
@@ -258,17 +254,17 @@ void loop() {                                                       //Keep loopi
   }
   //--------------------Steering control--------------------
   if (SteeringGoTo < 0) {                                           //If we are going to rotate to the left
-  LED_Left = true;                                                //Set left LED to be on
-} else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
-  LED_Right = true;                                               //Set right LED to be on
-} else {
-  LED_Left = false;                                               //Set left LED bool to off
-  LED_Right = false;                                              //Set right LED bool to off
-}
-if (SteeringGoTo == SteeringReadNow()) {
-  //Stop stearing
-} else {
-  if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
+    LED_Left = true;                                                //Set left LED to be on
+  } else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
+    LED_Right = true;                                               //Set right LED to be on
+  } else {
+    LED_Left = false;                                               //Set left LED bool to off
+    LED_Right = false;                                              //Set right LED bool to off
+  }
+  if (SteeringGoTo == SteeringReadNow()) {                          //If we are where we need to be
+    Steering = 0;                                                   //Stop stearing engine
+  } else {
+    if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
       if (digitalRead(PDO_SteeringReversePoles) == HIGH) {          //If pin is currently HIGH
         digitalWrite(PDO_SteeringReversePoles, LOW);                //Set pin L
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
@@ -279,28 +275,21 @@ if (SteeringGoTo == SteeringReadNow()) {
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
     }
-    //Set speed
-    int a = SensorFrontLeft + SensorFrontRight;
+    Steering = (510 - SensorFrontLeft + SensorFrontRight) / 2;      //Set the speed to be the amount of free space between the sensors
   }
-
-
-
-
-
-
-
+  digitalWrite(PDO_Steering, Steering);                             //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
-  String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwriten if its save)
-  if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
+    String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwriten if its save)
+    if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
       EmergencyButtonState = "~";                                   //Set status of emergency button to save
     }
-    String NewPCState = "[" + EmergencyButtonState + String("M") + String(EngineGoTo) + "]"; //Create a new state where the pc should be in right now
+    String NewPCState = "[" + EmergencyButtonState + String("M") + String(Engine) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateEngine != NewPCState) {                          //If the PC state is not what it should be (and the PC needs an update)
       Serial.print(NewPCState);                                     //Write the info to the PC
       LastPCStateEngine = NewPCState;                               //Update what the PC should have
     }
-    NewPCState = "[" + EmergencyButtonState + String("S") + String(SteeringGoTo) + "]"; //Create a new state where the pc should be in right now
+    NewPCState = "[" + EmergencyButtonState + String("S") + String(Steering) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateSteering != NewPCState) {                        //If the PC state is not what it should be (and the PC needs an update)
       Serial.print(NewPCState);                                     //Write the info to the PC
       LastPCStateSteering = NewPCState;                             //Update what the PC should have
@@ -309,7 +298,7 @@ if (SteeringGoTo == SteeringReadNow()) {
   //--------------------LED Control--------------------
   LEDControl();
 }
-int (SteeringReadNow) {
+int SteeringReadNow() {
   return map(analogRead(PDO_Steering_Read), 0, 255, -127, 127);     //Read and remap potmeter, and send it back to the caller
 }
 
@@ -333,48 +322,43 @@ void EmergencyReleased() {                                          //If the eme
 void HeadJelle() {
   //--------------------Jelle's head--------------------
   static int Z = 0;
-  static byte SensorLowLimit = 100;                                 //A
+  static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
   static byte MiniumDifference = 5;                                 //B
   static byte MiniumStepsBackwards = 100;                           //C
   static float DividerSteering = 10;                                //D
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
     EngineGoTo = -1;                                                //Set engine state, Will be verwritten when false
-    if (PDI_SensorBack > SensorLowLimit) {                          //If there is nothing behind us
-      if (PDI_SensorRight > SensorLowLimit) {                       //If there is nothing right of us
-        SteeringGoTo = 0;                                           //Steer left+
+    if (SensorBack < SensorFreeSpaceLimit) {                        //If there is nothing behind us
+      if (SensorRight < SensorFreeSpaceLimit) {                     //If there is nothing right of us
+        SteeringGoTo = -127;                                        //Steer all the way left
       } else {
-        if (PDI_SensorLeft > SensorLowLimit) {                      //If there is nothing left of us
-          SteeringGoTo = 180;                                       //Steer right
+        if (SensorLeft < SensorFreeSpaceLimit) {                    //If there is nothing left of us
+          SteeringGoTo = 127;                                       //Steer all the way right
         } else {
-          EngineGoTo = 0;                                           //Turn engine off
+          EngineGoTo = 0;                                           //Turn engine off (we can't move backwards)
         }
       }
     } else {
-      EngineGoTo = 0;                                               //Turn engine off (we can't move backwards
+      EngineGoTo = 0;                                               //Turn engine off (we can't move backwards)
     }
-  } else if (PDI_SensorLeft > SensorLowLimit and PDI_SensorRight > SensorLowLimit) { //If there is nothing in front of us
-    int X = PAI_SensorFrontLeft - PAI_SensorFrontRight;             //Calculate diffrence in sensoren
-    if (abs(X) > MiniumDifference) {                                //If the change is not to small
-      if ((X > 0 and PDI_SensorLeft > SensorLowLimit) or (X < 0 and PDI_SensorRight > SensorLowLimit)) {  //If there is nothing on that side of us
-        SteeringGoTo = Steering + (X / DividerSteering);            //Steer to that side (with the intensity of 'X/DividerSteering'
+  } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) { //If there is nothing in front of us
+    int SensorDiffrence = SensorFrontLeft - SensorFrontRight;       //Calculate diffrence in sensoren
+    if (abs(SensorDiffrence) > MiniumDifference) {                  //If the change is not to small
+      EngineGoTo = (510 - SensorFrontLeft + SensorFrontRight) / 2;  //Set the speed to be the amount of free space between the 2 front sensors
+      if ((SensorDiffrence > 0 and SensorRight < SensorFreeSpaceLimit) or (SensorDiffrence < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
+        SteeringGoTo = (SensorDiffrence / DividerSteering);         //Steer to that side (with the intensity of 'SensorDiffrence/DividerSteering'
       } else {
-        SteeringGoTo = Steering;                                    //Stop steering
+        SteeringGoTo = 0;                                           //Stop steering
       }
-      EngineGoTo = 1;                                               //Turn engine on
     } else {
-      SteeringGoTo = Steering;                                      //Stop steering
-      EngineGoTo = 1;                                               //Turn engine on
+      SteeringGoTo = 0;                                             //Stop steering
     }
   } else {
     Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
   }
-
-
   //EngineGoInSteps = 1000;                                         //Set the step to do amount
   //EngineCurrentStep = EngineGoInSteps;                            //Reset current step
-  //TODO FIXME [HIGH] ADD PWM CONTROL TO STEERING
-  map(EngineGoTo, -1, 1, -MaxValuePWM, MaxValuePWM);                //Remap to PWM
 }
 
 void LEDControl() {
