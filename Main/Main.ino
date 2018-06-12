@@ -6,9 +6,14 @@
   TODO FIXME [HIGH] Change pin numbers to match Eplan
   TODO FIXME [MID] Add a nice engine PWM down curve
   TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
+  TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+
+
+  Kown glitches:
+  - After approcimately 50 days of continues on time the emergency animation could play again (overflow of TImeStart) (LONG value, and when it's is 0 we start the animation)
 */
 #include "FastLED/FastLED.h"                                        //Include the FastLED library to control the LEDs in a simple fashion
 #include "interrupt.h"                                              //Include the interrupt file so we can use interupts
@@ -60,7 +65,7 @@ bool LED_SensorDebug;                                               //If we need
 bool LED_Backwards;                                                 //If the backwards LEDS needs to be on (if not it forwards)
 bool LED_Left;                                                      //If the left LEDS needs to be on
 bool LED_Right;                                                     //If the right LEDS needs to be on
-bool LED_Driving;                                                   //If the driving LEDS needs to be on (if not we are braking)
+bool LED_Forwards;                                                   //If the driving LEDS needs to be on (if not we are braking)
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
@@ -82,12 +87,12 @@ void setup() {                                                      //This code 
   FastLED.setBrightness(255);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
-  unsigned int TimeDelay = 2000;                                    //Delay in ms for the animation
+  const unsigned int TimeDelay = 2000;                              //Delay in ms for the animation
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
   unsigned long TimeCurrent = 0;                                    //No time has passed since start time
   while (TimeCurrent < TimeDelay) {                                 //While we still need to show an animation
     int x = map(TimeCurrent, 0, TimeDelay, 0, TotalLEDs);           //Remap value
-    TimeCurrent = millis() - TimeStart;                             //Recalculate current time
+    TimeCurrent = millis() - TimeStart;                             //Recalculate time past since start of the animation
     fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                       //Set X LEDs to be off
     FastLED.show();                                                 //Update
     delay(1);                                                       //Just some delay (Humans wont know this change, but the arduino likes it)
@@ -108,10 +113,9 @@ void loop() {                                                       //Keep loopi
   static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
   static unsigned long TimeLastTime;                                //The last time we run this code
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a osciloscoop is attacked to pin 13, the real loop delay can be
-  unsigned long TimeCurrent = millis();                             //Get currenttime
-  unsigned long EmergencyEndTime = 1;                               //A timer to keep the Emergency active for some time (just to remove hickups in the contact) if not 0 we need to wait this amount of ms
+  unsigned long TimeCurrent;                                        //Get currenttime
+  unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hickups in the contact) if not 0 we need to wait this amount of ms
   unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
-
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
     TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
@@ -157,20 +161,19 @@ void loop() {                                                       //Keep loopi
     LED_Emergency = true;                                           //Set the emergency LED on
     SteeringGoTo = SteeringReadNow();                               //Stop with rotating, keep where ever it is at this moment
     EngineGoTo = 0;                                                 //Set EngineGoTo to 0
-    EmergencyEndTime = 0;                                           //Reset so the Eergency button will keep being active for X time after released
+    TimeStart = 0;                                                  //Reset so the Eergency button will keep being active for X time after released
   } else {
-    if (EmergencyEndTime == 0) {                                    //If we havn't yet began
-      EmergencyEndTime = millis() + EmergencyTimeDelay;             //Set timer so we will wait X ms for the Emergency button to be unpressed (just to make sure we are ready to be turned on again, and it's not a hickup)
+    if (TimeStart == 0) {                                           //If we havn't yet began
+      TimeStart = millis();                                         //Set the StartTime as currenttime
       fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 255, 255));         //Set the whole LED strip to be yellow (Emergency released animation)
       FastLED.show();                                               //Update
     }
-    TimeCurrent = millis();                                         //No time has passed since start time
-    if (TimeCurrent < EmergencyEndTime) {                           //If we still need to wait a bit (just to make sure we are ready to be turned on again, and it's not a hickup)
+    TimeCurrent = millis() - TimeStart;                             //Recalculate time past since start of the animation
+    if (TimeCurrent < TimeDelay) {                                  //If we still need to wait a bit (just to make sure we are ready to be turned on again, and it's not a hickup)
       int x = map(TimeCurrent, 0, EmergencyTimeDelay, 0, TotalLEDs);//Remap value
       fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                     //Set X LEDs to be off
       FastLED.show();                                               //Update
-    }
-    else {
+    } else {
       LED_Emergency = false;                                        //Set the emergency LED off
       if (!OverWrite) {                                             //If the Arduino needs to think (not user input overwrite)
         //Add code here to control the Engine and steering
@@ -196,16 +199,19 @@ void loop() {                                                       //Keep loopi
   //--------------------Engine control--------------------
   LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
-    LED_Driving = false;                                            //Set engine LED to be off
+    LED_Forwards = false;                                            //Set engine LED to be off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
-      digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine off
-      delay(DelayAncher);                                           //Wait some time to make sure engine is off
-      Engine = EngineGoTo;                                          //Update the engine state
-      EngineFrom = Engine;                                          //Set current engine state to be the new state to start engine fom
+      if (digitalRead(PDO_MotorOnOff) == HIGH) {                    //If pin is HIGH (Engine on)
+        digitalWrite(PDO_MotorOnOff, LOW);                          //Set pin LOW (Engine off)
+        delay(DelayAncher);                                         //Wait some time to make sure engine is off
+      }
+      Engine = 0;                                                   //Reset
+      EngineFrom = 0;                                               //Reset
+      EngineGoInSteps = 0;                                          //Reset
     }
   } else {
-    if (digitalRead(PWO_Motor) == LOW ) {                           //If the engine is off
-      digitalWrite(PWO_Motor, HIGH);                                //Turn engine HOT
+    if (digitalRead(PDO_MotorOnOff) == LOW ) {                      //If pin is LOW (Engine off)
+      digitalWrite(PDO_MotorOnOff, HIGH);                           //Set pin HIGH (Engine on)
       delay(DelayPole);                                             //Wait some time to make sure engine is HOT (and save)
     }
     if (Engine != EngineGoTo) {                                     //If we are not yet done
@@ -213,44 +219,50 @@ void loop() {                                                       //Keep loopi
         EngineGoInSteps = 1000 ;                                    //Set the step to do amount
         EngineCurrentStep = EngineGoInSteps * 2;                    //Reset current step
       }
-      if (EngineGoInSteps > 0) {                                    //If there still steps To Do
-        EngineGoInSteps--;                                          //Remove one from the list to do (sice we are doing one now)
-        if (digitalRead(PDO_SteeringOnOff) == HIGH ) {                 //If the brake is on
-          digitalWrite(PDO_SteeringOnOff, LOW);                        //Don't brake
-          delay(DelayAncher);                                       //Wait some time to make sure engine is off
+      EngineGoInSteps--;                                            //Remove one from the list to do (sice we are doing one now)
+      if (digitalRead(PDO_SteeringOnOff) == HIGH ) {                //If pin is HIGH (Engine on)
+        digitalWrite(PDO_SteeringOnOff, LOW);                       //Don't brake
+        delay(DelayAncher);                                         //Wait some time to make sure engine is off
+      }
+      if (EngineGoTo > 0) {                                         //If we need to move forward
+        LED_Forwards = true;                                         //Set forwards driving LED on
+        LED_Backwards = false;                                      //Set backwards driving LED off
+        if (digitalRead(PDO_MotorReversePoles) == HIGH) {           //If pin is HIGH
+          digitalWrite(PDO_MotorReversePoles, LOW);                 //Set pin LOW
+          delay(DelayPole);                                         //Wait some time to make sure engine is off
         }
-        if (EngineGoTo > 0) {                                       //If we need to move forward
-          LED_Driving = true;                                       //Set forwards driving LED on
-          LED_Backwards = false;                                    //Set backwards driving LED off
-          if (digitalRead(PDO_MotorReversePoles) == HIGH) {         //If pin is HIGH
-            digitalWrite(PDO_MotorReversePoles, LOW);               //Set pin LOW
-            delay(DelayPole);                                       //Wait some time to make sure engine is off
-          }
-        } else {                                                    //If we need to move backwards
-          LED_Backwards = true;                                     //Set backwards driving LED on
-          LED_Driving = false;                                      //Set forwards driving LED off
-          if (digitalRead(PDO_MotorReversePoles) == LOW) {          //If pin is LOW
-            digitalWrite(PDO_MotorReversePoles, HIGH);              //Set pin HIGH
-            delay(DelayPole);                                       //Wait some time to make sure engine is off
-          }
+      } else {                                                      //If we need to move backwards
+        LED_Backwards = true;                                       //Set backwards driving LED on
+        LED_Forwards = false;                                        //Set forwards driving LED off
+        if (digitalRead(PDO_MotorReversePoles) == LOW) {            //If pin is LOW
+          digitalWrite(PDO_MotorReversePoles, HIGH);                //Set pin HIGH
+          delay(DelayPole);                                         //Wait some time to make sure engine is off
         }
-        if (abs(Engine) < abs(EngineGoTo)) {                        //If we need to speed up
-          if (EngineCurrentStep < EngineGoInSteps / 2) {            //If we are starting up
-            //Go to https://www.desmos.com/calculator and past this:
-            //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
-            Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
-          } else {
-            Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
-          }
-        } else if (Engine > EngineGoTo) {                           //If we need to speed down
-          Engine--;                                                 //remove 1 to the engine speed
-          //TODO FIXME [HIGH] Add a nice engine PWM down curve
+      }
+      if (Engine < abs(EngineGoTo)) {                               //If we need to speed up
+        if (EngineCurrentStep < EngineGoInSteps / 2) {              //If we are starting up
+          //Go to https://www.desmos.com/calculator and past this:
+          //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
+          Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
+        } else {
+          Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
         }
-        analogWrite(PWO_Motor, Engine);                             //Write the value to the engine
+      } else if (Engine > EngineGoTo) {                             //If we need to speed down
+        Engine--;                                                   //remove 1 to the engine speed
+        //TODO FIXME [HIGH] Add a nice engine PWM down curve
       }
     }
   }
+  analogWrite(PWO_Motor, Engine);                                   //Write the value to the engine
+
   //--------------------Steering control--------------------
+  //SteeringGoTo      = -127 tot 127    = Head program asked to go here
+  //Steering          = 0    tot 255    = The PWM value right now
+  //SteeringReadNow() = -127 tot 127    = The place where the steering is at
+  
+  //SteeringNow       = 0    tot 255    = The place where the steering is at
+  //int SteeringNow = analogRead(PAI_SensorPotmeterStuur);
+  
   if (SteeringGoTo < 0) {                                           //If we are going to rotate to the left
     LED_Left = true;                                                //Set left LED to be on
   } else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
@@ -273,9 +285,9 @@ void loop() {                                                       //Keep loopi
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
     }
-    Steering = (510 - SensorFrontLeft + SensorFrontRight) / 2;      //Set the speed to be the amount of free space between the sensors
+    Steering = MaxValuePWM - (SensorFrontLeft + SensorFrontRight) / 2; //Set the speed to be the amount of free space between the sensors (and map to 0-255)
   }
-  if (Steering == 0) {
+  if (Steering == 0) {                                              //If we don't need to steer
     if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If pin is HIGH
       digitalWrite(PDO_SteeringOnOff, LOW);                         //Set pin LOW
       delay(DelayPole);                                             //Wait some time to make sure steeringengine is HOT (and save)
@@ -286,6 +298,10 @@ void loop() {                                                       //Keep loopi
       delay(DelayPole);                                             //Wait some time to make sure steering engine is HOT (and save)
     }
   }
+
+
+  //TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
+  
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
@@ -315,7 +331,7 @@ void EmergencyReleased() {                                          //If the eme
   Emergency = 0;                                                    //Set the emergency pin to be low (this will tell the rest of the loop this has happened)
   SteeringGoTo = SteeringReadNow();                                 //Stop with rotating, keep where ever it is at this moment
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
-  LED_Driving = false;                                              //Set engine LED to be off
+  LED_Forwards = false;                                              //Set engine LED to be off
   analogWrite(PWO_Motor, LOW);                                      //Turn engine off
   if (Engine != EngineGoTo) {                                       //If we are not yet updated
     digitalWrite(PDO_MotorOnOff, LOW);                              //Turn engine off
@@ -460,12 +476,12 @@ void LEDControl() {
       UpdateLEDs = true;                                            //Update
     }
   }
-  if (LEDBrakeWasOn and (LED_Driving or LED_Backwards)) {           //If the LED now has turned of
+  if (LEDBrakeWasOn and (LED_Forwards or LED_Backwards)) {           //If the LED now has turned of
     LEDBrakeWasOn = false;                                          //Reset flag so this will trigger only when it happens, not when its off
     fill_solid(&(LEDs[108]), 36, CRGB(0, 0, 0));                    //Clear those LEDs
     UpdateLEDs = true;                                              //Update
   }
-  if (LED_Driving) {                                                //Drive Forwards
+  if (LED_Forwards) {                                                //Drive Forwards
     LEDDrivingWasOn = true;                                         //Flag that the LED is (was) on, so we can turn it off when its going off
     EVERY_N_MILLISECONDS(DelayAnimationDriving) {                   //Do every 'DelayanimationBlink' ms
       fill_solid(&(LEDs[PositionFrontMiddle - FrontLength]), (FrontLength * 2),                               CRGB(0, 0, 0));   //Setting the section to black
@@ -504,7 +520,7 @@ void LEDControl() {
       fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
       UpdateLEDs = true;                                            //Update
     }
-    if (!LED_Driving) {                                             //If not moving at all
+    if (!LED_Forwards) {                                             //If not moving at all
       LEDBrakeWasOn = true;                                         //Flag that the LED is (was) on, so we can turn it off when its going off
       fill_solid(&(LEDs[108]), 36, CRGB(255, 0, 0));                //Enable brake lights
       UpdateLEDs = true;                                            //Update

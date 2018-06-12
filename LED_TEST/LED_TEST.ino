@@ -38,7 +38,7 @@ int sensorVal[5];
 bool LED_Backwards = false;
 bool LED_Left = false;
 bool LED_Right = false;
-bool LED_Driving = false;
+bool LED_Forwards = false;
 bool LED_Emergency = false;
 bool PcEverConnected = false;
 bool PcActivity = false;
@@ -108,7 +108,7 @@ void loop() {                                                       //Keep loopi
         LED_Emergency = false;
         LED_Right = false;
         LED_SensorDebug = false;
-        LED_Driving = false;
+        LED_Forwards = false;
         OverWrite = false;
         break;
       case 46:                                                      //.
@@ -149,8 +149,8 @@ void loop() {                                                       //Keep loopi
         Serial.println("LED_SensorDebug " + String(LED_SensorDebug));
         break;
       case 56:                                                      //8 (numpad up)
-        LED_Driving = !LED_Driving;
-        Serial.println("LED_Driving " + String(LED_Driving));
+        LED_Forwards = !LED_Forwards;
+        Serial.println("LED_Forwards " + String(LED_Forwards));
         break;
       case 57:                                                      //9
         OverWrite = !OverWrite;
@@ -253,12 +253,12 @@ void LEDControl() {
       UpdateLEDs = true;                                            //Update
     }
   }
-  if (LEDBrakeWasOn and (LED_Driving or LED_Backwards)) {           //If the LED now has turned of
+  if (LEDBrakeWasOn and (LED_Forwards or LED_Backwards)) {           //If the LED now has turned of
     LEDBrakeWasOn = false;                                          //Reset flag so this will trigger only when it happens, not when its off
     fill_solid(&(LEDs[108]), 36, CRGB(0, 0, 0));                    //Clear those LEDs
     UpdateLEDs = true;                                              //Update
   }
-  if (LED_Driving) {                                                //Drive Forwards
+  if (LED_Forwards) {                                                //Drive Forwards
     LEDDrivingWasOn = true;                                         //Flag that the LED is (was) on, so we can turn it off when its going off
     EVERY_N_MILLISECONDS(DelayAnimationDriving) {                   //Do every 'DelayanimationBlink' ms
       fill_solid(&(LEDs[PositionFrontMiddle - FrontLength]), (FrontLength * 2),                               CRGB(0, 0, 0));   //Setting the section to black
@@ -297,7 +297,7 @@ void LEDControl() {
       fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
       UpdateLEDs = true;                                            //Update
     }
-    if (!LED_Driving) {                                             //If not moving at all
+    if (!LED_Forwards) {                                             //If not moving at all
       LEDBrakeWasOn = true;                                         //Flag that the LED is (was) on, so we can turn it off when its going off
       fill_solid(&(LEDs[108]), 36, CRGB(255, 0, 0));                //Enable brake lights
       UpdateLEDs = true;                                            //Update
