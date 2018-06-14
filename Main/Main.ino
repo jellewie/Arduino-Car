@@ -197,9 +197,9 @@ void loop() {                                                       //Keep loopi
     }
   }
   //--------------------Engine control--------------------
-  LED_Backwards = false;                                            //Set engine backwards LED to be off (will be turned on before it would notice it if it needs to be on)
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
-    LED_Forwards = false;                                            //Set engine LED to be off
+    LED_Forwards = false;                                           //Set forwards driving LED off
+    LED_Backwards = false;                                          //Set backwards driving LED off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
       if (digitalRead(PDO_MotorOnOff) == HIGH) {                    //If pin is HIGH (Engine on)
         digitalWrite(PDO_MotorOnOff, LOW);                          //Set pin LOW (Engine off)
@@ -210,46 +210,50 @@ void loop() {                                                       //Keep loopi
       EngineGoInSteps = 0;                                          //Reset
     }
   } else {
-    if (digitalRead(PDO_MotorOnOff) == LOW ) {                      //If pin is LOW (Engine off)
-      digitalWrite(PDO_MotorOnOff, HIGH);                           //Set pin HIGH (Engine on)
-      delay(DelayPole);                                             //Wait some time to make sure engine is HOT (and save)
-    }
-    if (Engine != EngineGoTo) {                                     //If we are not yet done
-      if (EngineGoInSteps == 0) {                                   //If no step amount is given
-        EngineGoInSteps = 1000 ;                                    //Set the step to do amount
-        EngineCurrentStep = EngineGoInSteps * 2;                    //Reset current step
-      }
-      EngineGoInSteps--;                                            //Remove one from the list to do (sice we are doing one now)
-      if (digitalRead(PDO_SteeringOnOff) == HIGH ) {                //If pin is HIGH (Engine on)
-        digitalWrite(PDO_SteeringOnOff, LOW);                       //Don't brake
-        delay(DelayAncher);                                         //Wait some time to make sure engine is off
-      }
+    if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
       if (EngineGoTo > 0) {                                         //If we need to move forward
-        LED_Forwards = true;                                         //Set forwards driving LED on
+        LED_Forwards = true;                                        //Set forwards driving LED on
         LED_Backwards = false;                                      //Set backwards driving LED off
-        if (digitalRead(PDO_MotorReversePoles) == HIGH) {           //If pin is HIGH
-          digitalWrite(PDO_MotorReversePoles, LOW);                 //Set pin LOW
+        if (digitalRead(PDO_MotorReversePoles) == HIGH) {           //If pin is HIGH (Backwards)
+          if (digitalRead(PDO_MotorOnOff) == HIGH ) {               //If pin is HIGH (Engine on)
+            digitalWrite(PDO_MotorOnOff, LOW);                      //Set pin LOW (Engine off)
+            delay(DelayAncher);                                     //Wait some time to make sure engine is off
+          }
+          digitalWrite(PDO_MotorReversePoles, LOW);                 //Set pin LOW (Forwards)
           delay(DelayPole);                                         //Wait some time to make sure engine is off
         }
-      } else {                                                      //If we need to move backwards
+      } else {                                                      //If we need to move backwards [Switch engine to right state (turn if off if we do this)]
         LED_Backwards = true;                                       //Set backwards driving LED on
-        LED_Forwards = false;                                        //Set forwards driving LED off
-        if (digitalRead(PDO_MotorReversePoles) == LOW) {            //If pin is LOW
-          digitalWrite(PDO_MotorReversePoles, HIGH);                //Set pin HIGH
+        LED_Forwards = false;                                       //Set forwards driving LED off
+        if (digitalRead(PDO_MotorReversePoles) == LOW) {            //If pin is LOW (Forwards)
+          if (digitalRead(PDO_MotorOnOff) == HIGH ) {               //If pin is HIGH (Engine on)
+            digitalWrite(PDO_MotorOnOff, LOW);                      //Set pin LOW (Engine off)
+            delay(DelayAncher);                                     //Wait some time to make sure engine is off
+          }
+          digitalWrite(PDO_MotorReversePoles, HIGH);                //Set pin HIGH (Backwards)
           delay(DelayPole);                                         //Wait some time to make sure engine is off
         }
+      }
+      if (digitalRead(PDO_MotorOnOff) == LOW ) {                    //If pin is LOW (Engine off)
+        digitalWrite(PDO_MotorOnOff, HIGH);                         //Set pin HIGH (Engine on)
+        delay(DelayAncher);                                         //Wait some time to make sure engine is HOT (and save)
       }
       if (Engine < abs(EngineGoTo)) {                               //If we need to speed up
+        if (EngineGoInSteps == 0) {                                 //If no step amount is given
+          EngineGoInSteps = 1000 ;                                  //Set the step to do amount
+          EngineCurrentStep = EngineGoInSteps;                      //Reset current step
+        }
+        EngineCurrentStep--;                                        //Remove one from the list to do (sice we are doing one now)
         if (EngineCurrentStep < EngineGoInSteps / 2) {              //If we are starting up
-          //Go to https://www.desmos.com/calculator and past this:
-          //y=\left\{x>0\right\}\left\{x<a\right\}\left\{x<\frac{a}{2}:\frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2,-2ba^{-2}\left(x-a\right)^2+b\right\}
+          //Go to https://www.desmos.com/calculator and past this:    \frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2
           Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
         } else {
+          //Go to https://www.desmos.com/calculator and past this:    -2ba^{-2}\left(x-a\right)^2+b
           Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
         }
       } else if (Engine > EngineGoTo) {                             //If we need to speed down
         Engine--;                                                   //remove 1 to the engine speed
-        //TODO FIXME [HIGH] Add a nice engine PWM down curve
+        //TODO FIXME [HIGH] Add a nice engine PWM down curve?
       }
     }
   }
@@ -259,10 +263,10 @@ void loop() {                                                       //Keep loopi
   //SteeringGoTo      = -127 tot 127    = Head program asked to go here
   //Steering          = 0    tot 255    = The PWM value right now
   //SteeringReadNow() = -127 tot 127    = The place where the steering is at
-  
+
   //SteeringNow       = 0    tot 255    = The place where the steering is at
   //int SteeringNow = analogRead(PAI_SensorPotmeterStuur);
-  
+
   if (SteeringGoTo < 0) {                                           //If we are going to rotate to the left
     LED_Left = true;                                                //Set left LED to be on
   } else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
@@ -301,7 +305,7 @@ void loop() {                                                       //Keep loopi
 
 
   //TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
-  
+
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
