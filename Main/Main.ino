@@ -10,6 +10,7 @@
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+  TODO FIXME add PDO_MotorBrakeAncher functinality
 
 
   Kown glitches:
@@ -19,15 +20,18 @@
 #include "interrupt.h"                                              //Include the interrupt file so we can use interupts
 
 //const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
-const byte PWO_LED = 5;
-const byte PWO_Motor = 6;
-const byte PWO_Steering = 7;
-const byte PDO_LEDBlink = 13;
-const byte PDO_SteeringReversePoles = 23;
-const byte PDO_SteeringOnOff = 25;
-const byte PDO_MotorReversePoles = 29;
-const byte PDO_MotorOnOff = 31;
-const byte PDO_Emergency = 53;
+const byte PWO_LED = 5;                                             //Where the <LED strip> is connected to
+const byte PWO_Motor = 6;                                           //Frequency controller motor relay
+const byte PWO_Steering = 7;                                        //Frequency controller steering relay
+const byte PDO_LEDBlink = 13;                                       //LED thats blinks each loop relay
+const byte PDO_SteeringReversePoles = 23;                           //Reverse polarity steering relay
+const byte PDO_SteeringReversePoles2 = 37;                          //Reverse polarity steering relay
+const byte PDO_SteeringOnOff = 25;                                  //Steering on/off relay
+const byte PDO_MotorBrakeAncher = 27;                               //Motor brake ancher relay (short the motor)
+const byte PDO_MotorReversePoles = 29;                              //Reverse polarity motor relay
+const byte PDO_MotorReversePoles2 = 35;                             //Reverse polarity motor relay
+const byte PDO_MotorOnOff = 31;                                     //Steering on/off relay
+const byte PDO_Emergency = 53;                                      //Emergency button feedback
 const byte PAI_SensorFrontLeft = A0;
 const byte PAI_SensorFrontRight = A1;
 const byte PAI_SensorRight = A2;
@@ -38,13 +42,13 @@ const byte PAI_SensorPotmeterStuur = A5;
 //Just some configuable things
 const int DelayPole = 50;                                           //The delay after/for the reversement of poles (reverse engine moment)
 const int DelayAncher = 10;                                         //The delay after/for the ancher is turned on
-const int MaxValuePWM = 255;                                        //Max number we can send to the Engine frequency generator
+const int MaxValuePWM = 255 / 2;                                    //Max number we can send to the Engine frequency generator
 const int TotalLEDs = (48 + 36) * 2;                                //The total amount of LEDS in the strip
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
 byte Retrieved[3];                                                  //The array where we put the com data in
-byte SensorFrontLeft;                                               //The consitence value of the sensor though the loop
+byte SensorFrontLeft;                                               //The contestant value of the sensor though the loop
 byte SensorFrontRight;                                              //^^
 byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
@@ -71,10 +75,10 @@ bool LED_Emergency;                                                 //If the eme
 void setup() {                                                      //This code runs once on start-up
   pinMode(PAI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
   pinMode(PAI_SensorBack, INPUT);                                   //^^
-  pinMode(PAI_SensorRight, INPUT);                                  //TODO FIXME [LOW] Should we set the sensors to be PULLUP??? does this even work?
+  pinMode(PAI_SensorRight, INPUT);                                  //^^
   pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
   pinMode(PAI_SensorFrontRight, INPUT);                             //^^
-  pinMode(PDO_Emergency, INPUT);                                    //TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
+  pinMode(PDO_Emergency, INPUT);                                    //^^
   pinMode(PWO_Motor, OUTPUT);                                       //^^
   pinMode(PWO_Steering, OUTPUT);                                    //^^
   pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
@@ -205,11 +209,19 @@ void loop() {                                                       //Keep loopi
         digitalWrite(PDO_MotorOnOff, LOW);                          //Set pin LOW (Engine off)
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
+      if (digitalRead(PDO_MotorBrakeAncher) == LOW) {               //If pin is LOW (Engine not shorted)
+        digitalWrite(PDO_MotorBrakeAncher, HIGH);                   //Set pin HIGH (Short Engine)
+        delay(DelayAncher);                                         //Wait some time to make sure engine is off
+      }
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
       EngineGoInSteps = 0;                                          //Reset
     }
   } else {
+    if (digitalRead(PDO_MotorBrakeAncher) == HIGH) {                //If pin is HIGH (Engine shorted)
+      digitalWrite(PDO_MotorBrakeAncher, LOW);                      //Set pin HIGH (dont short Engine)
+      delay(DelayAncher);                                           //Wait some time to make sure engine is off
+    }
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
       if (EngineGoTo > 0) {                                         //If we need to move forward
         LED_Forwards = true;                                        //Set forwards driving LED on
@@ -331,18 +343,22 @@ int SteeringReadNow() {
   return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap potmeter, and send it back to the caller
 }
 
-void EmergencyReleased() {                                          //If the emergency button is pressed (checked 111111/sec?)
+void EmergencyPressed {                                             //If the emergency button is pressed (checked 111111/sec?)
   Emergency = 0;                                                    //Set the emergency pin to be low (this will tell the rest of the loop this has happened)
   SteeringGoTo = SteeringReadNow();                                 //Stop with rotating, keep where ever it is at this moment
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
-  LED_Forwards = false;                                              //Set engine LED to be off
-  analogWrite(PWO_Motor, LOW);                                      //Turn engine off
-  if (Engine != EngineGoTo) {                                       //If we are not yet updated
-    digitalWrite(PDO_MotorOnOff, LOW);                              //Turn engine off
+  LED_Forwards = false;                                             //Set engine LED to be off
+  analogWrite(PWO_Motor, 0);                                        //Turn engine off (Set PWn to 0)
+  if (digitalRead(PDO_MotorOnOff) == HIGH) {                        //If pin is HIGH (Engine on)
+    digitalWrite(PDO_MotorOnOff, LOW);                              //Set pin LOW (Engine off)
     delay(DelayAncher);                                             //Wait some time to make sure engine is off
-    Engine = EngineGoTo;                                            //Update the engine state
-    EngineFrom = Engine;                                            //Set current engine state to be the new state to start engine fom
   }
+  if (digitalRead(PDO_MotorBrakeAncher) == LOW) {                   //If pin is LOW (Engine not shorted)
+    digitalWrite(PDO_MotorBrakeAncher, HIGH);                       //Set pin HIGH (Short Engine)
+    delay(DelayAncher);                                             //Wait some time to make sure engine is off
+  }
+  Engine = EngineGoTo;                                              //Update the engine state
+  EngineFrom = Engine;                                              //Set current engine state to be the new state to start engine fom
   LED_Emergency = true;                                             //Set the emergency LED on
   if (PcEverConnected) {                                            //If a PC has ever been connected
     Serial.println("[!E0]");                                        //Tell the PC an idiot has pressed the button
