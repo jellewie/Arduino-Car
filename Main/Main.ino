@@ -6,28 +6,28 @@
   TODO FIXME [HIGH] Change pin numbers to match Eplan
   TODO FIXME [MID] Add a nice engine PWM down curve
   TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
-  TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
+  TODO FIXME [MID] add an increasing here for steering instead that we would give full power if we want to fully steer
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
-  TODO FIXME add PDO_MotorBrakeAnchor functinality
+  TODO FIXME add PDO_MotorBrakeAnchor functionality
 
 
   Kown glitches:
-  - After approcimately 50 days of continues on time the emergency animation could play again (overflow of TImeStart) (LONG value, and when it's is 0 we start the animation)
+  - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
 */
 #include "FastLED/FastLED.h"                                        //Include the FastLED library to control the LEDs in a simple fashion
-#include "interrupt.h"                                              //Include the interrupt file so we can use interupts
+#include "interrupt.h"                                              //Include the interrupt file so we can use interrupts
 
 //const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
 const byte PWO_LED = 5;                                             //Where the <LED strip> is connected to
 const byte PWO_Motor = 6;                                           //Frequency controller motor relay
 const byte PWO_Steering = 7;                                        //Frequency controller steering relay
-const byte PDO_LEDBlink = 13;                                       //LED thats blinks each loop relay
+const byte PDO_LEDBlink = 13;                                       //LED that’s blinks each loop relay
 const byte PDO_SteeringReversePoles = 23;                           //Reverse polarity steering relay
 const byte PDO_SteeringReversePoles2 = 37;                          //Reverse polarity steering relay
 const byte PDO_SteeringOnOff = 25;                                  //Steering on/off relay
-const byte PDO_MotorBrakeAnchor = 27;                               //Motor brake ancher relay (short the motor)
+const byte PDO_MotorBrakeAnchor = 27;                               //Motor brake anchor relay (short the motor)
 const byte PDO_MotorReversePoles = 29;                              //Reverse polarity motor relay
 const byte PDO_MotorReversePoles2 = 35;                             //Reverse polarity motor relay
 const byte PDO_MotorOnOff = 31;                                     //Steering on/off relay
@@ -40,9 +40,9 @@ const byte PAI_SensorBack = A3;
 const byte PAI_SensorLeft = A4;
 const byte PAI_SensorPotmeterStuur = A5;
 
-//Just some configuable things
-const int DelayPole = 50;                                           //The delay after/for the reversement of poles (reverse engine moment)
-const int DelayAncher = 10;                                         //The delay after/for the ancher is turned on
+//Just some configurable things
+const int DelayPole = 50;                                           //The delay after/for the reverse-ment of poles (reverse engine moment)
+const int DelayAncher = 10;                                         //The delay after/for the anchor is turned on
 const int MaxValuePWM = 255 / 2;                                    //Max number we can send to the Engine frequency generator
 const int TotalLEDs = (48 + 36) * 2;                                //The total amount of LEDS in the strip
 
@@ -100,7 +100,7 @@ void setup() {                                                      //This code 
     TimeCurrent = millis() - TimeStart;                             //Recalculate time past since start of the animation
     fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                       //Set X LEDs to be off
     FastLED.show();                                                 //Update
-    delay(1);                                                       //Just some delay (Humans wont know this change, but the arduino likes it)
+    delay(1);                                                       //Just some delay (Humans wont know this change, but the Arduino likes it)
   }
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 0));                 //Set All LEDs to be off (just to be save
   FastLED.show();                                                   //Update
@@ -114,19 +114,19 @@ void loop() {                                                       //Keep loopi
   //Just some things we only need in this loop
   static int EngineGoInSteps;                                       //The amount to steps to execute the move in
   static int EngineCurrentStep;                                     //The current step we are in
-  static String LastPCStateSteering = "";                           //Last steering position sended to the PC, so this is what the PC knows
-  static String LastPCStateEngine = "";                             //Last engine position sended to the PC, so this is what the PC knows
+  static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
+  static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
   static unsigned long TimeLastTime;                                //The last time we run this code
-  const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a osciloscoop is attacked to pin 13, the real loop delay can be
+  const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent;                                        //Get currenttime
-  unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hickups in the contact) if not 0 we need to wait this amount of ms
+  unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
   unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
     TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
-  Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contstand in this loop)
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistance though this loop) (There being remapped to the max of a byte range)
+  Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
+  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
   SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
   SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
   SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
@@ -143,7 +143,7 @@ void loop() {                                                       //Keep loopi
     Retrieved[3] = Serial.read();                                   //Just useless, but tells the end of the int
     delay(1);                                                       //Some delay so we are sure we retrieved all the data
     while (Serial.available() > 0) {                                //If there is still data bunched up (or you accidentally send a line enter "/n/r")
-      Serial.print("[?" + String(Serial.read()) + "]");             //Get the data and trow it in the trash
+      Serial.print("[?" + String(Serial.read()) + "]");             //Get the data and throw it in the trash
       delay(1);                                                     //Some delay so we are sure we retrieved all the data
     }
     //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
@@ -154,7 +154,7 @@ void loop() {                                                       //Keep loopi
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       EngineGoTo = Retrieved[2];                                    //Set the EngineGoTo state
     } else if (Retrieved[1] == 65) {                                //If "A" retrieved (Auto mode)
-      OverWrite = false;                                            //reset OverWrite state (Arduino things by itzelf again)
+      OverWrite = false;                                            //reset OverWrite state (Arduino things by it’s self again)
     } else if (Retrieved[1] == 68) {                                //If "D" retrieved (Debug)
       LED_SensorDebug = !LED_SensorDebug;                           //Toggle Debug mode
     }
@@ -166,10 +166,10 @@ void loop() {                                                       //Keep loopi
     LED_Emergency = true;                                           //Set the emergency LED on
     SteeringGoTo = SteeringReadNow();                               //Stop with rotating, keep where ever it is at this moment
     EngineGoTo = 0;                                                 //Set EngineGoTo to 0
-    TimeStart = 0;                                                  //Reset so the Eergency button will keep being active for X time after released
+    TimeStart = 0;                                                  //Reset so the Emergency button will keep being active for X time after released
   } else {
-    if (TimeStart == 0) {                                           //If we havn't yet began
-      TimeStart = millis();                                         //Set the StartTime as currenttime
+    if (TimeStart == 0) {                                           //If we haven’t yet began
+      TimeStart = millis();                                         //Set the StartTime as current time
       fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 255, 255));         //Set the whole LED strip to be yellow (Emergency released animation)
       FastLED.show();                                               //Update
     }
@@ -196,7 +196,7 @@ void loop() {                                                       //Keep loopi
         //Use 'EngineGoTo = -255;' to turn on the engine on but backwards
         //Use 'EngineGoInSteps = Y' to tell the amount of steps to do (when left 0 it will be set to 1K)
         //Use 'SteeringGoTo = X;'  to rotate to X
-        HeadJelle();                                                //Call jelle's head code (change if we want to use a diffrent head
+        HeadJelle();                                                //Call jelle's head code (change if we want to use a different head
         //--------------------End Head--------------------
       }
     }
@@ -206,14 +206,14 @@ void loop() {                                                       //Keep loopi
     LED_Forwards = false;                                           //Set forwards driving LED off
     LED_Backwards = false;                                          //Set backwards driving LED off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
-      SetEngine(LOW, HIGH);                                         //Set Engine off, and directiong forward
+      SetEngine(LOW, HIGH);                                         //Set Engine off, and direction forward
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
       EngineGoInSteps = 0;                                          //Reset
     }
   } else {
     if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {                //If pin is HIGH (Engine shorted)
-      digitalWrite(PDO_MotorBrakeAnchor, LOW);                      //Set pin HIGH (dont short Engine)
+      digitalWrite(PDO_MotorBrakeAnchor, LOW);                      //Set pin HIGH (don’t short Engine)
       delay(DelayAncher);                                           //Wait some time to make sure engine is off
     }
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
@@ -254,7 +254,7 @@ void loop() {                                                       //Keep loopi
           EngineGoInSteps = 1000 ;                                  //Set the step to do amount
           EngineCurrentStep = EngineGoInSteps;                      //Reset current step
         }
-        EngineCurrentStep--;                                        //Remove one from the list to do (sice we are doing one now)
+        EngineCurrentStep--;                                        //Remove one from the list to do (since we are doing one now)
         if (EngineCurrentStep < EngineGoInSteps / 2) {              //If we are starting up
           //Go to https://www.desmos.com/calculator and past this:    \frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2
           Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
@@ -305,7 +305,7 @@ void loop() {                                                       //Keep loopi
   if (Steering == 0) {                                              //If we don't need to steer
     if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If pin is HIGH
       digitalWrite(PDO_SteeringOnOff, LOW);                         //Set pin LOW
-      delay(DelayPole);                                             //Wait some time to make sure steeringengine is HOT (and save)
+      delay(DelayPole);                                             //Wait some time to make sure steering engine is HOT (and save)
     }
   } else {
     if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If pin is LOW
@@ -320,7 +320,7 @@ void loop() {                                                       //Keep loopi
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
-    String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwriten if its save)
+    String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwritten if its save)
     if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
       EmergencyButtonState = "~";                                   //Set status of emergency button to save
     }
@@ -340,12 +340,12 @@ void loop() {                                                       //Keep loopi
 }
 
 void SetEngine(bool StateOnOff, bool StateDirection) {
-  byte O;                                                           //Create a new byte (Basicly the analog StateOnOff state)
-  if (StateOnOff) {                                                 //If StateOnOff nees to be HIGH
+  byte O;                                                           //Create a new byte (Basically the analog StateOnOff state)
+  if (StateOnOff) {                                                 //If StateOnOff needs to be HIGH
     O = 1;                                                          //Set analog value to be HIGH
   }
-  byte D;                                                           //Create a new byte (Basicly the analog StateDirection state)
-  if (StateDirection) {                                             //If StateDirection nees to be HIGH
+  byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
+  if (StateDirection) {                                             //If StateDirection needs to be HIGH
     D = 1;                                                          //Set analog value to be HIGH
   }
   if (digitalRead(PDO_MotorReversePoles) == !D) {                   //If we need to move forward or backwards but we aren't
@@ -357,7 +357,7 @@ void SetEngine(bool StateOnOff, bool StateDirection) {
     analogWrite(PDO_MotorReversePoles2, D * 255);                   //Set right direction
     delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
-  if (digitalRead(PDO_MotorOnOff) == !O) {                          //If the engine isnt in the right state
+  if (digitalRead(PDO_MotorOnOff) == !O) {                          //If the engine isn’t in the right state
     if (O == 0) {                                                   //If we need to stop
       digitalWrite(PDO_MotorOnOff, LOW);                            //Stop the engine
       delay(DelayAncher);                                           //Wait some time
@@ -377,7 +377,7 @@ void SetEngine(bool StateOnOff, bool StateDirection) {
 }
 
 int SteeringReadNow() {
-  return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap potmeter, and send it back to the caller
+  return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap pot meter, and send it back to the caller
 }
 
 void EmergencyPressed() {                                           //If the emergency button is pressed (checked 111111/sec?)
@@ -385,10 +385,10 @@ void EmergencyPressed() {                                           //If the eme
   SteeringGoTo = SteeringReadNow();                                 //Stop with rotating, keep where ever it is at this moment
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
   LED_Forwards = false;                                             //Set engine LED to be off
-  analogWrite(PWO_Motor, 0);                                        //Turn engine off (Set PWn to 0)
+  analogWrite(PWO_Motor, 0);                                        //Turn engine off (Set PWN to 0)
   SetEngine(LOW, LOW);                                              //Set engine relays
   Engine = EngineGoTo;                                              //Update the engine state
-  EngineFrom = Engine;                                              //Set current engine state to be the new state to start engine fom
+  EngineFrom = Engine;                                              //Set current engine state to be the new state to start engine from
   LED_Emergency = true;                                             //Set the emergency LED on
   if (PcEverConnected) {                                            //If a PC has ever been connected
     Serial.println("[!E0]");                                        //Tell the PC an idiot has pressed the button
@@ -404,7 +404,7 @@ void HeadJelle() {
   static float DividerSteering = 10;                                //D
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
-    EngineGoTo = -1;                                                //Set engine state, Will be verwritten when false
+    EngineGoTo = -1;                                                //Set engine state, Will be overwritten when false
     if (SensorBack < SensorFreeSpaceLimit) {                        //If there is nothing behind us
       if (SensorRight < SensorFreeSpaceLimit) {                     //If there is nothing right of us
         SteeringGoTo = -127;                                        //Steer all the way left
@@ -419,7 +419,7 @@ void HeadJelle() {
       EngineGoTo = 0;                                               //Turn engine off (we can't move backwards)
     }
   } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) { //If there is nothing in front of us
-    int SensorDiffrence = SensorFrontLeft - SensorFrontRight;       //Calculate diffrence in sensoren
+    int SensorDiffrence = SensorFrontLeft - SensorFrontRight;       //Calculate difference in sensors
     if (abs(SensorDiffrence) > MiniumDifference) {                  //If the change is not to small
       EngineGoTo = (510 - SensorFrontLeft + SensorFrontRight) / 2;  //Set the speed to be the amount of free space between the 2 front sensors
       if ((SensorDiffrence > 0 and SensorRight < SensorFreeSpaceLimit) or (SensorDiffrence < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
@@ -439,14 +439,14 @@ void HeadJelle() {
 
 void LEDControl() {
   //60 LEDs/M
-  //0.8m x 0.6m = 2.8M omtrek (en 0.48 m² oppervlakte)
-  //3M x 60LEDS/M = 180LEDs totaal * (3x20ma) = 10800ma (11A) Powerbank is 26800 dus we kunnen een paar uur op full power!
+  //0.8m x 0.6m = 2.8M omtrek (and 0.48 m² surface)
+  //3M x 60LEDS/M = 180LEDs total * (3x20ma) = 10800ma (11A) Power bank is 26800 so we can do a few hours at full power!
   //pin voor LED = PWO_LED
   //https://github.com/FastLED/FastLED/wiki/Pixel-reference
-  //WS2812 LED data takes 30µs per pixel. If you have 100 pixels, then that means interrupts will be disabLED for 3000µs, or 3ms.
+  //WS2812 LED data takes 30µs per pixel. If you have 100 pixels, then that means interrupts will be disabled for 3000µs, or 3ms.
   //48 x 36 LEDS = 24 <Corner> 36 <> 48 <> 36 <> 24
 
-  const static byte DelayAnimationDriving = 100;                    //Delay in ms for the animation (minium time)
+  const static byte DelayAnimationDriving = 100;                    //Delay in ms for the animation (minimum time)
   const static byte DelayanimationBlink = 50;                       //^^
   const static byte DiscoSpeed = 1;                                 //Speed of change when in disco mode
   const static byte DelayEmergency = 15;                            //delay in ms between each step in emergency mode
@@ -456,7 +456,7 @@ void LEDControl() {
   static byte CounterFront;                                         //^^
   static byte CounterLeft;                                          //^^
   static byte CounterRight;                                         //^^
-  static bool UpdateLEDs;                                           //If the LED color needs to be updated
+  static bool UpdateLEDs;                                           //If the LED colour needs to be updated
   static bool LEDLeftWasOn;                                         //Create a bool so we can reset the LED when its going off
   static bool LEDRightWasOn;                                        //^^
   static bool LEDDrivingWasOn;                                      //^^
@@ -490,7 +490,7 @@ void LEDControl() {
       fill_solid(&(LEDs[PositionLeftBack]), 2,                          CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the back section to on so they will always be on if this function is calLED
       fill_solid(&(LEDs[PositionLeftBack]), CounterLeft,                CRGB(255, 128, 0)); //Will set the increasing back left section
       CounterLeft++;                                                //This will make the front LED section length bigger
-      if ((CounterLeft > LeftLength)) {                             //If we are at max lenth
+      if ((CounterLeft > LeftLength)) {                             //If we are at max length
         CounterLeft = 0;                                            //Reset counter
       }
       UpdateLEDs = true;                                            //Update
@@ -511,7 +511,7 @@ void LEDControl() {
       fill_solid(&(LEDs[PositionRightBack - RightLength]), RightLength,   CRGB(0, 0, 0));     //Setting the back section to black
       fill_solid(&(LEDs[PositionRightBack - 2]), 2,                       CRGB(255, 128, 0)); //Will set the first two LEDs at the start of the back section to on so they will always be on if this function is calLED
       fill_solid(&(LEDs[PositionRightBack - CounterRight]), CounterRight, CRGB(255, 128, 0)); //Will set the increasing back right section
-      CounterRight++;                                               //This will make the back LED section length bigger
+      CounterRight++;                                               //This will make the back-LED section length bigger
       if ((CounterRight > RightLength)) {                           //If both sections are as big as they can go,
         CounterRight = 0;                                           //And it will reset the back counter
       }
@@ -538,7 +538,7 @@ void LEDControl() {
       fill_solid(&(LEDs[PositionFrontMiddle - (PositionFrontMiddleStatic)]), (PositionFrontMiddleStatic * 2), CRGB(0, 255, 0)); //Setting the static LEDs
       fill_solid(&(LEDs[PositionFrontMiddle - CounterFront]), (CounterFront * 2),                             CRGB(0, 255, 0)); //Setting the moving LEDs
       CounterFront++;                                               //increasing the position
-      if (CounterFront > FrontLength) {                             //If the section is bigger thant the maximum,
+      if (CounterFront > FrontLength) {                             //If the section is bigger then the maximum,
         CounterFront = 0;                                           //Reset counter
       }
       UpdateLEDs = true;                                            //Update
@@ -554,7 +554,7 @@ void LEDControl() {
   if (LED_Backwards) {                                              //Drive Backwards (and check later if we are standing still)
     LEDBackwardsWasOn = true;                                       //Flag that the LED is (was) on, so we can turn it off when its going off
     EVERY_N_MILLISECONDS(DelayAnimationDriving) {                   //Do every 'DelayanimationBlink' ms
-      fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2),                CRGB(0, 0, 0));       //Reseting the back strip
+      fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2),                CRGB(0, 0, 0));       //Resetting the back strip
       fill_solid(&(LEDs[BackMiddle - (BackMiddleStatic)]), (BackMiddleStatic * 2),  CRGB(255, 255, 255)); //Setting the static LEDs
       fill_solid(&(LEDs[BackMiddle - CounterBack]), (CounterBack * 2),              CRGB(255, 255, 255)); //Setting the moving LEDs
       CounterBack++;                                                //Increasing the position value
@@ -581,7 +581,7 @@ void LEDControl() {
     LEDs[5] = CRGB(0, 0, 255);                                      //Status indication LED if pc is connected
     if (PcActivity) {                                               //Pc activity
       PcActivity = false;                                           //Reseting PC activity so it can be set again if it has activity
-      LEDs[5] = CRGB(0, 255, 0);                                    //Making status indication LED different color
+      LEDs[5] = CRGB(0, 255, 0);                                    //Making status indication LED different colour
     }
     UpdateLEDs = true;                                              //Update
   } else if (LEDPcEverConnectedWasOn) {                             //If the LED now has turned of
@@ -625,9 +625,9 @@ void LEDControl() {
   }
   if (Retrieved[3] == 42) {                                         //If we need an Retrieved[3] (42 = '*')
     LEDDisco = true;
-    static byte gHue;                                               //Create a new varabile
+    static byte gHue;                                               //Create a new variable
     EVERY_N_MILLISECONDS(DiscoSpeed) {                              //Do if 20 ms have pasted
-      gHue++;                                                       //Slowly cycle the "base color" through the rainbow
+      gHue++;                                                       //Slowly cycle the "base colour" through the rainbow
     }
     fill_rainbow(LEDs, TotalLEDs, gHue, 7);                         //Do some funny stuff
     UpdateLEDs = true;                                              //Update
@@ -640,20 +640,20 @@ void LEDControl() {
     LEDEmergencyWasOn = true;                                       //Flag that the LED is (was) on, so we can turn it off when its going off
     int EmergencyOffset = TotalLEDs / EmergencyAmount;              //Calculation for calculating offset from first Position
     int poss[EmergencyAmount];                                      //Array for saving the positions of the sections
-    fill_solid(&(LEDs[0]), TotalLEDs,             CRGB(0, 0, 0));   //Completly erasing all LED data so they wil al be off (this will overwrite all other programs)
+    fill_solid(&(LEDs[0]), TotalLEDs,             CRGB(0, 0, 0));   //Completely erasing all LED data so they will al be off (this will overwrite all other programs)
     for (int i = 0; i < EmergencyAmount; i++) {                     //Beginning of the loop which will send each position and length
       poss[i] = CounterEmergency + (EmergencyOffset * i);           //This will calculate each position by adding the offset times the position number to the first position
       int posX;                                                     //This is the variable which will be used for sending position start
       if (poss[i] >= TotalLEDs) {                                   //To see if the position is to bigger than the total amount
         posX = poss[i] - TotalLEDs;                                 //Subtract the total amount of LEDs from the position number
-      } else {                                                      //Otherwise it wil just use the position data without modifying it
+      } else {                                                      //Otherwise it will just use the position data without modifying it
         posX = poss[i];                                             //Just use the position number
       }
       if (posX <= (TotalLEDs - EmergencySize)) {                    //If the whole section ends before the total amount is reached it wil just us the normal way of setting the LEDs
-        fill_solid( &(LEDs[posX]), EmergencySize, CRGB(255, 0, 0)); //With the standard fill_solid command from FastLED, LEDs[posX] PosX stands for beginning position, EmergencySize will stand for the size of the sections and the last one is the color
+        fill_solid( &(LEDs[posX]), EmergencySize, CRGB(255, 0, 0)); //With the standard fill solid command from FastLED, LEDs[posX] PosX stands for beginning position, EmergencySize will stand for the size of the sections and the last one is the colour
       } else if ((posX >= (TotalLEDs - EmergencySize)) && (posX <= TotalLEDs)) {//This will check if the thing is beyond the total amount of LEDs
         int calc1 = (TotalLEDs - (posX + EmergencySize)) * -1;      //Calculates the amount of LEDs which need to be set from the beginning
-        int calc2 = EmergencySize - calc1;                          //Calculates the amount of LEDs which need to be set at the last so the total wil be reached but wont be bigger than the total
+        int calc2 = EmergencySize - calc1;                          //Calculates the amount of LEDs which need to be set at the last so the total will be reached but wont be bigger than the total
         fill_solid(&(LEDs[posX]), calc2,          CRGB(255, 0, 0)); //Fills the LEDs at the beginning of the strip
         fill_solid(&(LEDs[0])   , calc1,          CRGB(255, 0, 0)); //Fills the last LEDs at the end of the strip
       }
