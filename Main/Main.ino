@@ -10,7 +10,7 @@
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
-  TODO FIXME add PDO_MotorBrakeAncher functinality
+  TODO FIXME add PDO_MotorBrakeAnchor functinality
 
 
   Kown glitches:
@@ -27,7 +27,7 @@ const byte PDO_LEDBlink = 13;                                       //LED thats 
 const byte PDO_SteeringReversePoles = 23;                           //Reverse polarity steering relay
 const byte PDO_SteeringReversePoles2 = 37;                          //Reverse polarity steering relay
 const byte PDO_SteeringOnOff = 25;                                  //Steering on/off relay
-const byte PDO_MotorBrakeAncher = 27;                               //Motor brake ancher relay (short the motor)
+const byte PDO_MotorBrakeAnchor = 27;                               //Motor brake ancher relay (short the motor)
 const byte PDO_MotorReversePoles = 29;                              //Reverse polarity motor relay
 const byte PDO_MotorReversePoles2 = 35;                             //Reverse polarity motor relay
 const byte PDO_MotorOnOff = 31;                                     //Steering on/off relay
@@ -209,8 +209,8 @@ void loop() {                                                       //Keep loopi
         digitalWrite(PDO_MotorOnOff, LOW);                          //Set pin LOW (Engine off)
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
-      if (digitalRead(PDO_MotorBrakeAncher) == LOW) {               //If pin is LOW (Engine not shorted)
-        digitalWrite(PDO_MotorBrakeAncher, HIGH);                   //Set pin HIGH (Short Engine)
+      if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If pin is LOW (Engine not shorted)
+        digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Set pin HIGH (Short Engine)
         delay(DelayAncher);                                         //Wait some time to make sure engine is off
       }
       Engine = 0;                                                   //Reset
@@ -218,8 +218,8 @@ void loop() {                                                       //Keep loopi
       EngineGoInSteps = 0;                                          //Reset
     }
   } else {
-    if (digitalRead(PDO_MotorBrakeAncher) == HIGH) {                //If pin is HIGH (Engine shorted)
-      digitalWrite(PDO_MotorBrakeAncher, LOW);                      //Set pin HIGH (dont short Engine)
+    if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {                //If pin is HIGH (Engine shorted)
+      digitalWrite(PDO_MotorBrakeAnchor, LOW);                      //Set pin HIGH (dont short Engine)
       delay(DelayAncher);                                           //Wait some time to make sure engine is off
     }
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
@@ -338,7 +338,25 @@ void loop() {                                                       //Keep loopi
   }
   //--------------------LED Control--------------------
   LEDControl();
+
+
+  SetEngine(LOW);
 }
+
+void SetEngine(bool StateOnOff, bool StateDirection) {
+  if (digitalRead(PDO_MotorReversePoles) == LOW) {            //If pin is LOW (Forwards)
+    if (digitalRead(PDO_MotorOnOff) == HIGH ) {               //If pin is HIGH (Engine on)
+      digitalWrite(PDO_MotorOnOff, LOW);                      //Set pin LOW (Engine off)
+      delay(DelayAncher);                                     //Wait some time to make sure engine is off
+    }
+    digitalWrite(PDO_MotorReversePoles, HIGH);                //Set pin HIGH (Backwards)
+    delay(DelayPole);                                         //Wait some time to make sure engine is off
+  }
+
+
+}
+
+
 int SteeringReadNow() {
   return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap potmeter, and send it back to the caller
 }
@@ -353,8 +371,8 @@ void EmergencyPressed {                                             //If the eme
     digitalWrite(PDO_MotorOnOff, LOW);                              //Set pin LOW (Engine off)
     delay(DelayAncher);                                             //Wait some time to make sure engine is off
   }
-  if (digitalRead(PDO_MotorBrakeAncher) == LOW) {                   //If pin is LOW (Engine not shorted)
-    digitalWrite(PDO_MotorBrakeAncher, HIGH);                       //Set pin HIGH (Short Engine)
+  if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {                   //If pin is LOW (Engine not shorted)
+    digitalWrite(PDO_MotorBrakeAnchor, HIGH);                       //Set pin HIGH (Short Engine)
     delay(DelayAncher);                                             //Wait some time to make sure engine is off
   }
   Engine = EngineGoTo;                                              //Update the engine state
