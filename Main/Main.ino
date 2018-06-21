@@ -116,9 +116,9 @@ void loop() {                                                       //Keep loopi
   static int EngineCurrentStep;                                     //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
-  static unsigned long TimeLastTime;                                //The last time we run this code
+  static unsigned long TimeLastTime = 0;                               //The last time we run this code
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
-  unsigned long TimeCurrent;                                        //Get currenttime
+  unsigned long TimeCurrent = 0;                                       //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
   unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
@@ -203,52 +203,20 @@ void loop() {                                                       //Keep loopi
   }
   //--------------------Engine control--------------------
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
-    LED_Forwards = false;                                           //Set forwards driving LED off
-    LED_Backwards = false;                                          //Set backwards driving LED off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
-      SetEngine(LOW, HIGH);                                         //Set Engine off, and direction forward
+      SetEngineOn(false);                                           //Set Engine off
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
       EngineGoInSteps = 0;                                          //Reset
     }
   } else {
-    if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {                //If pin is HIGH (Engine shorted)
-      digitalWrite(PDO_MotorBrakeAnchor, LOW);                      //Set pin HIGH (don’t short Engine)
-      delay(DelayAncher);                                           //Wait some time to make sure engine is off
-    }
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
       if (EngineGoTo > 0) {                                         //If we need to move forward
-        LED_Forwards = true;                                        //Set forwards driving LED on
-        LED_Backwards = false;                                      //Set backwards driving LED off
-
-
-        //TODO: replace below engine controls with "SetEngine(Bool ON/OFF, Bool Forward/Backwards)"
-
-
-        if (digitalRead(PDO_MotorReversePoles) == HIGH) {           //If pin is HIGH (Backwards)
-          if (digitalRead(PDO_MotorOnOff) == HIGH ) {               //If pin is HIGH (Engine on)
-            digitalWrite(PDO_MotorOnOff, LOW);                      //Set pin LOW (Engine off)
-            delay(DelayAncher);                                     //Wait some time to make sure engine is off
-          }
-          digitalWrite(PDO_MotorReversePoles, LOW);                 //Set pin LOW (Forwards)
-          delay(DelayPole);                                         //Wait some time to make sure engine is off
-        }
+        SetEngineForward(true);                                     //Set Engine to move forward
       } else {                                                      //If we need to move backwards [Switch engine to right state (turn if off if we do this)]
-        LED_Backwards = true;                                       //Set backwards driving LED on
-        LED_Forwards = false;                                       //Set forwards driving LED off
-        if (digitalRead(PDO_MotorReversePoles) == LOW) {            //If pin is LOW (Forwards)
-          if (digitalRead(PDO_MotorOnOff) == HIGH ) {               //If pin is HIGH (Engine on)
-            digitalWrite(PDO_MotorOnOff, LOW);                      //Set pin LOW (Engine off)
-            delay(DelayAncher);                                     //Wait some time to make sure engine is off
-          }
-          digitalWrite(PDO_MotorReversePoles, HIGH);                //Set pin HIGH (Backwards)
-          delay(DelayPole);                                         //Wait some time to make sure engine is off
-        }
+        SetEngineForward(false);                                    //Set Engine to move backwards
       }
-      if (digitalRead(PDO_MotorOnOff) == LOW ) {                    //If pin is LOW (Engine off)
-        digitalWrite(PDO_MotorOnOff, HIGH);                         //Set pin HIGH (Engine on)
-        delay(DelayAncher);                                         //Wait some time to make sure engine is HOT (and save)
-      }
+      SetEngineOn(true);                                            //Set Engine on
       if (Engine < abs(EngineGoTo)) {                               //If we need to speed up
         if (EngineGoInSteps == 0) {                                 //If no step amount is given
           EngineGoInSteps = 1000 ;                                  //Set the step to do amount
@@ -269,7 +237,6 @@ void loop() {                                                       //Keep loopi
     }
   }
   analogWrite(PWO_Motor, Engine);                                   //Write the value to the engine
-
   //--------------------Steering control--------------------
   //SteeringGoTo      = -127 tot 127    = Head program asked to go here
   //Steering          = 0    tot 255    = The PWM value right now
@@ -290,30 +257,17 @@ void loop() {                                                       //Keep loopi
     Steering = 0;                                                   //Stop stearing engine
   } else {
     if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
-      if (digitalRead(PDO_SteeringReversePoles) == HIGH) {          //If pin is HIGH
-        digitalWrite(PDO_SteeringReversePoles, LOW);                //Set pin LOW
-        delay(DelayAncher);                                         //Wait some time to make sure engine is off
-      }
+      SetSteeringLeft(true);                                        //Steer to the left
     } else {                                                        //If we go left (Not right, not straight; so left)
-      if (digitalRead(PDO_SteeringReversePoles) == LOW) {           //If pin is LOW
-        digitalWrite(PDO_SteeringReversePoles, HIGH);               //Set pin HIGH
-        delay(DelayAncher);                                         //Wait some time to make sure engine is off
-      }
+      SetSteeringLeft(false);                                       //Steer to the right
     }
     Steering = MaxValuePWM - (SensorFrontLeft + SensorFrontRight) / 2; //Set the speed to be the amount of free space between the sensors (and map to 0-255)
   }
   if (Steering == 0) {                                              //If we don't need to steer
-    if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If pin is HIGH
-      digitalWrite(PDO_SteeringOnOff, LOW);                         //Set pin LOW
-      delay(DelayPole);                                             //Wait some time to make sure steering engine is HOT (and save)
-    }
+    SetEngineOn(false);                                             //Set Steering engine on
   } else {
-    if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If pin is LOW
-      digitalWrite(PDO_SteeringOnOff, HIGH);                        //Set pin HIGH
-      delay(DelayPole);                                             //Wait some time to make sure steering engine is HOT (and save)
-    }
+    SetEngineOn(true);                                              //Set Steering engine off
   }
-
 
   //TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
 
@@ -339,40 +293,73 @@ void loop() {                                                       //Keep loopi
   LEDControl();
 }
 
-void SetEngine(bool StateOnOff, bool StateDirection) {
-  byte O;                                                           //Create a new byte (Basically the analog StateOnOff state)
-  if (StateOnOff) {                                                 //If StateOnOff needs to be HIGH
-    O = 1;                                                          //Set analog value to be HIGH
-  }
-  byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
-  if (StateDirection) {                                             //If StateDirection needs to be HIGH
-    D = 1;                                                          //Set analog value to be HIGH
-  }
-  if (digitalRead(PDO_MotorReversePoles) == !D) {                   //If we need to move forward or backwards but we aren't
-    if (digitalRead(PDO_MotorOnOff) == HIGH ) {                     //If engine is on
-      digitalWrite(PDO_MotorOnOff, LOW);                            //Set engine off
-      delay(DelayAncher);                                           //Wait some time to make sure engine is off
+void SetSteeringOn(bool SteerOn) {
+  if (SteerOn) {                                                    //If we need to steer
+    if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If the engine is off
+      analogWrite(PDO_SteeringOnOff, HIGH);                         //Turn engine on
+      delay(DelayAncher);                                           //Wait some time
     }
-    analogWrite(PDO_MotorReversePoles, D * 255);                    //Set right direction
-    analogWrite(PDO_MotorReversePoles2, D * 255);                   //Set right direction
+  } else {
+    if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If the engine is on
+      digitalWrite(PDO_SteeringOnOff, LOW);                         //Turn engine off
+      delay(DelayAncher);                                           //Wait some time
+    }
+  }
+}
+
+void SetSteeringLeft(bool State) {
+  byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
+  if (State) {                                                      //If StateDirection needs to be HIGH
+    D = 1;                                                          //Set analog value to be HIGH
+    LED_Left = true;                                                //Flag LED_Left to be on
+  } else {
+    LED_Left = false;                                               //Flag LED_Left to be on
+  }
+  if (digitalRead(PDO_SteeringReversePoles) == !D) {                //If we need to move forward or backwards but we aren't
+    SetEngineOn(false);                                             //Make sure the engine if off
+    analogWrite(PDO_SteeringReversePoles, D * 255);                 //Set right direction
+    analogWrite(PDO_SteeringReversePoles2, D * 255);                //Set right direction
     delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
-  if (digitalRead(PDO_MotorOnOff) == !O) {                          //If the engine isn’t in the right state
-    if (O == 0) {                                                   //If we need to stop
-      digitalWrite(PDO_MotorOnOff, LOW);                            //Stop the engine
+}
+
+void SetEngineOn(bool EngineOn) {
+  if (EngineOn) {                                                   //If we need to drive
+    if (digitalRead(PDO_MotorOnOff) == LOW) {                       //If the engine is off
+      if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {              //If Engine Shorted
+        digitalWrite(PDO_MotorBrakeAnchor, LOW);                    //Don't short the engine
+        delay(DelayAncher);                                         //Wait some time
+      }
+      analogWrite(PDO_MotorOnOff, HIGH);                            //Turn engine on
+      delay(DelayAncher);                                           //Wait some time
+    }
+  } else {
+    if (digitalRead(PDO_MotorOnOff) == HIGH) {                      //If the engine is on
+      digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine off
       delay(DelayAncher);                                           //Wait some time
       if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If Engine isn't Shorted
         digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Short the engine
         delay(DelayAncher);                                         //Wait some time
       }
-    } else {
-      if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {              //If Engine Shorted
-        digitalWrite(PDO_MotorBrakeAnchor, LOW);                    //Don't short the engine
-        delay(DelayAncher);                                         //Wait some time
-      }
-      analogWrite(PDO_MotorOnOff, O + 255);                         //set the engine to the right state
-      delay(DelayAncher);                                           //Wait some time
     }
+  }
+}
+
+void SetEngineForward(bool State) {
+  byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
+  if (State) {                                                      //If StateDirection needs to be HIGH
+    D = 1;                                                          //Set analog value to be HIGH
+    LED_Forwards = true;                                            //Set forwards driving LED on
+    LED_Backwards = false;                                          //Set backwards driving LED off
+  } else {
+    LED_Forwards = false;                                           //Set forwards driving LED on
+    LED_Backwards = true;                                           //Set backwards driving LED off
+  }
+  if (digitalRead(PDO_MotorReversePoles) == !D) {                   //If we need to move forward or backwards but we aren't
+    SetEngineOn(false);                                             //Make sure the engine if off
+    analogWrite(PDO_MotorReversePoles, D * 255);                    //Set right direction
+    analogWrite(PDO_MotorReversePoles2, D * 255);                   //Set right direction
+    delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
 }
 
@@ -386,7 +373,8 @@ void EmergencyPressed() {                                           //If the eme
   EngineGoTo = 0;                                                   //Set EngineGoTo to 0 (so it doesn't turn on)
   LED_Forwards = false;                                             //Set engine LED to be off
   analogWrite(PWO_Motor, 0);                                        //Turn engine off (Set PWN to 0)
-  SetEngine(LOW, LOW);                                              //Set engine relays
+  SetEngineOn(false);                                               //Turn engine off
+  SetSteeringOn(false);                                             //Turn steering engine off
   Engine = EngineGoTo;                                              //Update the engine state
   EngineFrom = Engine;                                              //Set current engine state to be the new state to start engine from
   LED_Emergency = true;                                             //Set the emergency LED on
