@@ -3,15 +3,10 @@
 
 
   =====TODO=====
-  TODO FIXME [HIGH] Change pin numbers to match Eplan
   TODO FIXME [MID] Add a nice engine PWM down curve
-  TODO FIXME [HIGH] PDO_Emergency Needs a pulldown resistor for in case it's disconnected???
-  TODO FIXME [MID] add an increasing here for steering instead that we would give full power if we want to fully steer
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
-  TODO FIXME add PDO_MotorBrakeAnchor functionality
-
 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
@@ -70,7 +65,7 @@ bool LED_SensorDebug;                                               //If we need
 bool LED_Backwards;                                                 //If the backwards LEDS needs to be on (if not it forwards)
 bool LED_Left;                                                      //If the left LEDS needs to be on
 bool LED_Right;                                                     //If the right LEDS needs to be on
-bool LED_Forwards;                                                   //If the driving LEDS needs to be on (if not we are braking)
+bool LED_Forwards;                                                  //If the driving LEDS needs to be on (if not we are braking)
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
@@ -116,9 +111,9 @@ void loop() {                                                       //Keep loopi
   static int EngineCurrentStep;                                     //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
-  static unsigned long TimeLastTime = 0;                               //The last time we run this code
+  static unsigned long TimeLastTime = 0;                            //The last time we run this code
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
-  unsigned long TimeCurrent = 0;                                       //Get currenttime
+  unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
   unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
@@ -261,16 +256,13 @@ void loop() {                                                       //Keep loopi
     } else {                                                        //If we go left (Not right, not straight; so left)
       SetSteeringLeft(false);                                       //Steer to the right
     }
-    Steering = MaxValuePWM - (SensorFrontLeft + SensorFrontRight) / 2; //Set the speed to be the amount of free space between the sensors (and map to 0-255)
+    Steering = abs(SensorFrontLeft - SensorFrontRight) / 2; //Set the speed to be the amount of free space between the sensors (and map to 0-255)
   }
   if (Steering == 0) {                                              //If we don't need to steer
     SetEngineOn(false);                                             //Set Steering engine on
   } else {
     SetEngineOn(true);                                              //Set Steering engine off
   }
-
-  //TODO FIXME [MID] add a increasing here for steering instead that we would give full power if we want to fully steer
-
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If a PC has ever been connected
