@@ -7,6 +7,7 @@
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+  TODO FIXME [HIGH] Invert Relay 1-8 since LOW=ON
 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
@@ -19,15 +20,15 @@ const byte PWO_LED = 5;                                             //Where the 
 const byte PWO_Motor = 6;                                           //Frequency controller motor relay
 const byte PWO_Steering = 7;                                        //Frequency controller steering relay
 const byte PDO_LEDBlink = 13;                                       //LED that’s blinks each loop relay
-const byte PDO_SteeringReversePoles = 23;                           //Reverse polarity steering relay
-const byte PDO_SteeringReversePoles2 = 37;                          //Reverse polarity steering relay
-const byte PDO_SteeringOnOff = 25;                                  //Steering on/off relay
-const byte PDO_MotorBrakeAnchor = 27;                               //Motor brake anchor relay (short the motor)
-const byte PDO_MotorReversePoles = 29;                              //Reverse polarity motor relay
-const byte PDO_MotorReversePoles2 = 35;                             //Reverse polarity motor relay
-const byte PDO_MotorOnOff = 31;                                     //Steering on/off relay
+const byte PDO_SteeringReversePoles = 23;                 //K5      //Reverse polarity steering relay
+const byte PDO_SteeringReversePoles2 = 37;                //K8      //Reverse polarity steering relay
+const byte PDO_SteeringOnOff = 25;                        //K4      //Steering on/off relay
+const byte PDO_MotorBrakeAnchor = 27;                     //K3      //Motor brake anchor relay (short the motor)
+const byte PDO_MotorReversePoles = 29;                    //K2      //Reverse polarity motor relay
+const byte PDO_MotorReversePoles2 = 35;                   //K7      //Reverse polarity motor relay
+const byte PDO_MotorOnOff = 31;                           //K1      //Steering on/off relay
+//const byte PDO_SpareRelay = 39;                         //K6
 const byte PDO_Emergency = 53;                                      //Emergency button feedback
-//const byte PDO_SpareRelay = 39;
 const byte PAI_SensorFrontLeft = A0;
 const byte PAI_SensorFrontRight = A1;
 const byte PAI_SensorRight = A2;
@@ -40,6 +41,9 @@ const int DelayPole = 50;                                           //The delay 
 const int DelayAncher = 10;                                         //The delay after/for the anchor is turned on
 const int MaxValuePWM = 255 / 2;                                    //Max number we can send to the Engine frequency generator
 const int TotalLEDs = (48 + 36) * 2;                                //The total amount of LEDS in the strip
+const byte SteeringMinimum = 25;                                    //Below this diffrence we won't steer
+const unsigned int AnimationTimeEmergency = 1000;                   //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
+const unsigned int AnimationTimeBooting = 2000;                     //Delay in ms for the animation on start
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
@@ -87,11 +91,10 @@ void setup() {                                                      //This code 
   FastLED.setBrightness(255);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
-  const unsigned int TimeDelay = 2000;                              //Delay in ms for the animation
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
   unsigned long TimeCurrent = 0;                                    //No time has passed since start time
-  while (TimeCurrent < TimeDelay) {                                 //While we still need to show an animation
-    int x = map(TimeCurrent, 0, TimeDelay, 0, TotalLEDs);           //Remap value
+  while (TimeCurrent < AnimationTimeBooting) {                      //While we still need to show an animation
+    int x = map(TimeCurrent, 0, AnimationTimeBooting, 0, TotalLEDs);//Remap value
     TimeCurrent = millis() - TimeStart;                             //Recalculate time past since start of the animation
     fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                       //Set X LEDs to be off
     FastLED.show();                                                 //Update
@@ -115,7 +118,6 @@ void loop() {                                                       //Keep loopi
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
-  unsigned int EmergencyTimeDelay = 1000;                           //Delay in ms for the animation
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
     TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
@@ -170,7 +172,7 @@ void loop() {                                                       //Keep loopi
     }
     TimeCurrent = millis() - TimeStart;                             //Recalculate time past since start of the animation
     if (TimeCurrent < TimeDelay) {                                  //If we still need to wait a bit (just to make sure we are ready to be turned on again, and it's not a hickup)
-      int x = map(TimeCurrent, 0, EmergencyTimeDelay, 0, TotalLEDs);//Remap value
+      int x = map(TimeCurrent, 0, AnimationTimeEmergency, 0, TotalLEDs);//Remap value
       fill_solid(&(LEDs[0]), x, CRGB(0, 0, 0));                     //Set X LEDs to be off
       FastLED.show();                                               //Update
     } else {
@@ -256,9 +258,9 @@ void loop() {                                                       //Keep loopi
     } else {                                                        //If we go left (Not right, not straight; so left)
       SetSteeringLeft(false);                                       //Steer to the right
     }
-    Steering = abs(SensorFrontLeft - SensorFrontRight) / 2; //Set the speed to be the amount of free space between the sensors (and map to 0-255)
+    Steering = abs(SensorFrontLeft - SensorFrontRight);             //Set the speed to be the amount of free space between the sensors (and map to 0-255)
   }
-  if (Steering == 0) {                                              //If we don't need to steer
+  if (Steering < SteeringMinimum) {                                 //If we don't need to steer
     SetEngineOn(false);                                             //Set Steering engine on
   } else {
     SetEngineOn(true);                                              //Set Steering engine off
@@ -287,13 +289,13 @@ void loop() {                                                       //Keep loopi
 
 void SetSteeringOn(bool SteerOn) {
   if (SteerOn) {                                                    //If we need to steer
-    if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If the engine is off
-      analogWrite(PDO_SteeringOnOff, HIGH);                         //Turn engine on
+    if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If the engine is off (Relay inversed)
+      analogWrite(PDO_SteeringOnOff, LOW);                          //Turn engine on       (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
-    if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If the engine is on
-      digitalWrite(PDO_SteeringOnOff, LOW);                         //Turn engine off
+    if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If the engine is on  (Relay inversed)
+      digitalWrite(PDO_SteeringOnOff, HIGH);                        //Turn engine off      (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   }
@@ -302,35 +304,35 @@ void SetSteeringOn(bool SteerOn) {
 void SetSteeringLeft(bool State) {
   byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
   if (State) {                                                      //If StateDirection needs to be HIGH
-    D = 1;                                                          //Set analog value to be HIGH
     LED_Left = true;                                                //Flag LED_Left to be on
   } else {
+    D = 1;                                                          //Set analog value to be HIGH
     LED_Left = false;                                               //Flag LED_Left to be on
   }
-  if (digitalRead(PDO_SteeringReversePoles) == !D) {                //If we need to move forward or backwards but we aren't
+  if (digitalRead(PDO_SteeringReversePoles) == !D) {                //If we need to move forward or backwards but we aren't (Relay inversed)
     SetEngineOn(false);                                             //Make sure the engine if off
-    analogWrite(PDO_SteeringReversePoles, D * 255);                 //Set right direction
-    analogWrite(PDO_SteeringReversePoles2, D * 255);                //Set right direction
+    analogWrite(PDO_SteeringReversePoles, D * 255);                 //Set right direction     (Relay inversed)
+    analogWrite(PDO_SteeringReversePoles2, D * 255);                //Set right direction     (Relay inversed)
     delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
 }
 
 void SetEngineOn(bool EngineOn) {
   if (EngineOn) {                                                   //If we need to drive
-    if (digitalRead(PDO_MotorOnOff) == LOW) {                       //If the engine is off
-      if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {              //If Engine Shorted
-        digitalWrite(PDO_MotorBrakeAnchor, LOW);                    //Don't short the engine
+    if (digitalRead(PDO_MotorOnOff) == HIGH) {                      //If the engine is off    (Relay inversed)
+      if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If Engine Shorted       (Relay inversed)
+        digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Don't short the engine  (Relay inversed)
         delay(DelayAncher);                                         //Wait some time
       }
-      analogWrite(PDO_MotorOnOff, HIGH);                            //Turn engine on
+      analogWrite(PDO_MotorOnOff, LOW);                             //Turn engine on          (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
-    if (digitalRead(PDO_MotorOnOff) == HIGH) {                      //If the engine is on
-      digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine off
+    if (digitalRead(PDO_MotorOnOff) == LOW) {                       //If the engine is on     (Relay inversed)
+      digitalWrite(PDO_MotorOnOff, HIGH);                           //Turn engine off         (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
-      if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If Engine isn't Shorted
-        digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Short the engine
+      if (digitalRead(PDO_MotorBrakeAnchor) == HIGH) {              //If Engine isn't Shorted (Relay inversed)
+        digitalWrite(PDO_MotorBrakeAnchor, LOW);                    //Short the engine        (Relay inversed)
         delay(DelayAncher);                                         //Wait some time
       }
     }
@@ -340,17 +342,17 @@ void SetEngineOn(bool EngineOn) {
 void SetEngineForward(bool State) {
   byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
   if (State) {                                                      //If StateDirection needs to be HIGH
-    D = 1;                                                          //Set analog value to be HIGH
     LED_Forwards = true;                                            //Set forwards driving LED on
     LED_Backwards = false;                                          //Set backwards driving LED off
   } else {
+    D = 1;                                                          //Set analog value to be HIGH
     LED_Forwards = false;                                           //Set forwards driving LED on
     LED_Backwards = true;                                           //Set backwards driving LED off
   }
-  if (digitalRead(PDO_MotorReversePoles) == !D) {                   //If we need to move forward or backwards but we aren't
+  if (digitalRead(PDO_MotorReversePoles) == !D) {                   //If we need to move forward or backwards but we aren't (Relay inversed)
     SetEngineOn(false);                                             //Make sure the engine if off
-    analogWrite(PDO_MotorReversePoles, D * 255);                    //Set right direction
-    analogWrite(PDO_MotorReversePoles2, D * 255);                   //Set right direction
+    analogWrite(PDO_MotorReversePoles, D * 255);                    //Set right direction      (Relay inversed)
+    analogWrite(PDO_MotorReversePoles2, D * 255);                   //Set right direction      (Relay inversed)
     delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
 }
@@ -506,7 +508,7 @@ void LEDControl() {
       UpdateLEDs = true;                                            //Update
     }
   }
-  if (LEDBrakeWasOn and (LED_Forwards or LED_Backwards)) {           //If the LED now has turned of
+  if (LEDBrakeWasOn and (LED_Forwards or LED_Backwards)) {          //If the LED now has turned of
     LEDBrakeWasOn = false;                                          //Reset flag so this will trigger only when it happens, not when its off
     fill_solid(&(LEDs[108]), 36, CRGB(0, 0, 0));                    //Clear those LEDs
     UpdateLEDs = true;                                              //Update
@@ -550,7 +552,7 @@ void LEDControl() {
       fill_solid(&(LEDs[BackMiddle - BackLength]), (BackLength * 2), CRGB(0, 0, 0)); //Clear those LEDs
       UpdateLEDs = true;                                            //Update
     }
-    if (!LED_Forwards) {                                             //If not moving at all
+    if (!LED_Forwards) {                                            //If not moving at all
       LEDBrakeWasOn = true;                                         //Flag that the LED is (was) on, so we can turn it off when its going off
       fill_solid(&(LEDs[108]), 36, CRGB(255, 0, 0));                //Enable brake lights
       UpdateLEDs = true;                                            //Update
@@ -656,4 +658,9 @@ void LEDControl() {
     UpdateLEDs = false;                                             //Flag update done
   }
 }
+
+
+
+
+
 //this is the end, hope you had fun
