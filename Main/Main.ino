@@ -9,6 +9,8 @@
   //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
   TODO FIXME [HIGH] Invert Relay 1-8 since LOW=ON
 
+  TODO FIXME [HIGH] Test!!!! if on startup power would be send to the engine. the relays will blow if this happens! so test first
+
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
 */
