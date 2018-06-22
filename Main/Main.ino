@@ -10,6 +10,11 @@
   TODO FIXME [HIGH] Invert Relay 1-8 since LOW=ON
 
   TODO FIXME [HIGH] Test!!!! if on startup power would be send to the engine. the relays will blow if this happens! so test first
+  Thoughts of Jelle on this issue: (It would be fine, but checking doesn't hurt)
+      1) The ON/OFF relay will turn on
+      2) The SHORT ENGING relay will turn on
+      3) The PWM is not set, so no voltage would be set
+      4) In boot both above names relays will be turned off (we are talking about ms here I think)
 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
@@ -27,7 +32,7 @@ const byte PDO_MotorReversePoles = 25;                    //K2      //Reverse po
 const byte PDO_MotorBrakeAnchor = 27;                     //K3      //Motor brake anchor relay (short the motor)
 const byte PDO_SteeringOnOff = 29;                        //K4      //Steering on/off relay
 const byte PDO_SteeringReversePoles = 31;                 //K5      //Reverse polarity steering relay
-//const byte PDO_SpareRelay = 33;                         //K6
+//const byte PDO_SpareRelay = 33;                         //K6      //(no pinMode set)
 const byte PDO_MotorReversePoles2 = 35;                   //K7      //Reverse polarity motor relay
 const byte PDO_SteeringReversePoles2 = 37;                //K8      //Reverse polarity steering relay
 const byte PDO_Emergency = 53;                                      //Emergency button feedback
@@ -75,19 +80,28 @@ bool LED_Forwards;                                                  //If the dri
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
-  pinMode(PAI_SensorLeft, INPUT);                                   //Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
-  pinMode(PAI_SensorBack, INPUT);                                   //^^
-  pinMode(PAI_SensorRight, INPUT);                                  //^^
+  pinMode(PDO_MotorOnOff, OUTPUT);                                  //  (A) Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
+  digitalWrite(PDO_MotorOnOff, HIGH);                               //Set Relay to be OFF        (Relay inversed)
+  pinMode(PDO_MotorBrakeAnchor, OUTPUT);                            //^^(A)
+  digitalWrite(PDO_MotorBrakeAnchor, HIGH);                         //Set Relay to be OFF        (Relay inversed)
+  pinMode(PDO_SteeringOnOff, OUTPUT);                               //^^(A)
+  digitalWrite(PDO_SteeringOnOff, HIGH);                            //Set Relay to be OFF        (Relay inversed)
+  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^(A)
+  pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
+  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
+  pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
+  pinMode(PDO_MotorReversePoles2, OUTPUT);                          //^^
+  pinMode(PDO_SteeringReversePoles2, OUTPUT);                       //^^
+  pinMode(PDO_Emergency, INPUT);                                    //^^
   pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
   pinMode(PAI_SensorFrontRight, INPUT);                             //^^
-  pinMode(PDO_Emergency, INPUT);                                    //^^
+  pinMode(PAI_SensorRight, INPUT);                                  //^^
+  pinMode(PAI_SensorBack, INPUT);                                   //^^
+  pinMode(PAI_SensorLeft, INPUT);                                   //^^
+  pinMode(PAI_SensorPotmeterStuur, INPUT);                          //^^
+  pinMode(PWO_LED, OUTPUT);                                         //^^
   pinMode(PWO_Motor, OUTPUT);                                       //^^
   pinMode(PWO_Steering, OUTPUT);                                    //^^
-  pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
-  pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
-  pinMode(PDO_SteeringOnOff, OUTPUT);                               //^^
-  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
-  pinMode(PDO_MotorOnOff, OUTPUT);                                  //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
   FastLED.setBrightness(255);                                       //Scale brightness
