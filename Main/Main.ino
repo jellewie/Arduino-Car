@@ -82,13 +82,12 @@ bool LED_Emergency;                                                 //If the eme
 void setup() {                                                      //This code runs once on start-up
   pinMode(PDO_MotorOnOff, OUTPUT);                                  //  (A) Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
   digitalWrite(PDO_MotorOnOff, HIGH);                               //Set Relay to be OFF        (Relay inversed)
-  pinMode(PDO_MotorBrakeAnchor, OUTPUT);                            //^^(A)
-  digitalWrite(PDO_MotorBrakeAnchor, HIGH);                         //Set Relay to be OFF        (Relay inversed)
   pinMode(PDO_SteeringOnOff, OUTPUT);                               //^^(A)
   digitalWrite(PDO_SteeringOnOff, HIGH);                            //Set Relay to be OFF        (Relay inversed)
   pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^(A)
   pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
   pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
+  pinMode(PDO_MotorBrakeAnchor, OUTPUT);                            //^^
   pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
   pinMode(PDO_MotorReversePoles2, OUTPUT);                          //^^
   pinMode(PDO_SteeringReversePoles2, OUTPUT);                       //^^
