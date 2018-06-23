@@ -18,7 +18,7 @@
 
   TODO TEST [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
   TODO TEST [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
- 
+
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
 */
@@ -305,7 +305,7 @@ void loop() {                                                       //Keep loopi
   LEDControl();
 }
 
-void SetSteeringOn(bool SteerOn) {
+void SetSteeringOn(bool SteerOn) {                                  //If called with (true) the steering motor will be turned on
   if (SteerOn) {                                                    //If we need to steer
     if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If the engine is off (Relay inversed)
       analogWrite(PDO_SteeringOnOff, LOW);                          //Turn engine on       (Relay inversed)
@@ -320,7 +320,7 @@ void SetSteeringOn(bool SteerOn) {
   }
 }
 
-void SetSteeringLeft(bool State) {
+void SetSteeringLeft(bool State) {                                  //If called with (true) the steer engine will be set to move left (if will only move to the left if also power is applied)
   byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
   if (State) {                                                      //If StateDirection needs to be HIGH
     LED_Left = true;                                                //Flag LED_Left to be on
@@ -336,7 +336,7 @@ void SetSteeringLeft(bool State) {
   }
 }
 
-void SetEngineOn(bool EngineOn) {
+void SetEngineOn(bool EngineOn) {                                   //If called with (true) the main engine will be turned on
   if (EngineOn) {                                                   //If we need to drive
     if (digitalRead(PDO_MotorOnOff) == HIGH) {                      //If the engine is off    (Relay inversed)
       if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If Engine Shorted       (Relay inversed)
@@ -359,7 +359,7 @@ void SetEngineOn(bool EngineOn) {
   }
 }
 
-void SetEngineForward(bool State) {
+void SetEngineForward(bool State) {                                 //If called with (true) the main engine will be set to move forward
   byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
   if (State) {                                                      //If StateDirection needs to be HIGH
     LED_Forwards = true;                                            //Set forwards driving LED on
@@ -377,7 +377,7 @@ void SetEngineForward(bool State) {
   }
 }
 
-int SteeringReadNow() {
+int SteeringReadNow() {                                             //returns the steering potmeter on a scale of -127 to 127
   return map(analogRead(PAI_SensorPotmeterStuur ), 0, 1024, -127, 127); //Read and remap pot meter, and send it back to the caller
 }
 
@@ -397,7 +397,7 @@ void EmergencyPressed() {                                           //If the eme
   }
 }
 
-void HeadJelle() {
+void HeadJelle() {                                                  //The code of jelle that calculates in his way where to move to and at what speed and such
   //--------------------Jelle's head--------------------
   static int Z = 0;
   static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
@@ -439,7 +439,7 @@ void HeadJelle() {
   //EngineCurrentStep = EngineGoInSteps;                            //Reset current step
 }
 
-void LEDControl() {
+void LEDControl() {                                                 //Code that controls all the LEDs
   //60 LEDs/M
   //0.8m x 0.6m = 2.8M omtrek (and 0.48 m² surface)
   //3M x 60LEDS/M = 180LEDs total * (3x20ma) = 10800ma (11A) Power bank is 26800 so we can do a few hours at full power!
