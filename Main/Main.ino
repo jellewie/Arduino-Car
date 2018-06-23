@@ -6,7 +6,6 @@
   TODO FIXME [MID] Add a nice engine PWM down curve
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
-  //TEST - TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
   TODO FIXME [HIGH] Invert Relay 1-8 since LOW=ON
 
   TODO FIXME [HIGH] Test!!!! if on startup power would be send to the engine. the relays will blow if this happens! so test first
@@ -16,6 +15,10 @@
       3) The PWM is not set, so no voltage would be set
       4) In boot both above names relays will be turned off (we are talking about ms here I think)
 
+
+  TODO TEST [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
+  TODO TEST [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+ 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
 */
@@ -309,6 +312,7 @@ void SetSteeringOn(bool SteerOn) {
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
+    analogWrite(PDO_SteeringOnOff, 0);                              //Set the PWM to be off (just to be sure)
     if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If the engine is on  (Relay inversed)
       digitalWrite(PDO_SteeringOnOff, HIGH);                        //Turn engine off      (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
@@ -343,6 +347,7 @@ void SetEngineOn(bool EngineOn) {
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
+    analogWrite(PWO_Motor, 0);                                      //Set the PWM to be off (just to be sure)
     if (digitalRead(PDO_MotorOnOff) == LOW) {                       //If the engine is on     (Relay inversed)
       digitalWrite(PDO_MotorOnOff, HIGH);                           //Turn engine off         (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
@@ -373,7 +378,7 @@ void SetEngineForward(bool State) {
 }
 
 int SteeringReadNow() {
-  return map(analogRead(PAI_SensorPotmeterStuur ), 0, 255, -127, 127); //Read and remap pot meter, and send it back to the caller
+  return map(analogRead(PAI_SensorPotmeterStuur ), 0, 1024, -127, 127); //Read and remap pot meter, and send it back to the caller
 }
 
 void EmergencyPressed() {                                           //If the emergency button is pressed (checked 111111/sec?)
@@ -673,9 +678,4 @@ void LEDControl() {
     UpdateLEDs = false;                                             //Flag update done
   }
 }
-
-
-
-
-
 //this is the end, hope you had fun
