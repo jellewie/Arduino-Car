@@ -161,16 +161,16 @@ void loop() {                                                       //Keep loopi
       Serial.print("[?" + String(Serial.read()) + "]");             //Get the data and throw it in the trash
       delay(1);                                                     //Some delay so we are sure we retrieved all the data
     }
-    //Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
-    if (Retrieved[1] == 82) {                                       //If "R" retrieved (Rotate)
+    Serial.print("RX=0:" + String(Retrieved[0]) + "_1:" + String(Retrieved[1]) + "_2:" + String(Retrieved[2]) + "_3:" + String(Retrieved[3]));
+    if (Retrieved[1] == 'R') {                                      //If "82" retrieved (Rotate)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       SteeringGoTo = Retrieved[2];                                  //Set where to rotate to
-    } else if (Retrieved[1] == 77) {                                //If "M" retrieved (Motor)
+    } else if (Retrieved[1] == 'M') {                               //If "77" retrieved (Motor)
       OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
       EngineGoTo = Retrieved[2];                                    //Set the EngineGoTo state
-    } else if (Retrieved[1] == 65) {                                //If "A" retrieved (Auto mode)
+    } else if (Retrieved[1] == 'A') {                               //If "65" retrieved (Auto mode)
       OverWrite = false;                                            //reset OverWrite state (Arduino things by it’s self again)
-    } else if (Retrieved[1] == 68) {                                //If "D" retrieved (Debug)
+    } else if (Retrieved[1] == 'D') {                               //If "68" retrieved (Debug)
       LED_SensorDebug = !LED_SensorDebug;                           //Toggle Debug mode
     }
     LastPCStateEngine = "";                                         //Fuck up LastPCStateEngine so it will resend it
@@ -178,6 +178,7 @@ void loop() {                                                       //Keep loopi
   }
   if (Retrieved[0] != 126 || Emergency == 0) {                      //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
     //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
+    Serial.println("FIRE" + String(Retrieved[0]) + String(Emergency));
     LED_Emergency = true;                                           //Set the emergency LED on
     SteeringGoTo = SteeringReadNow();                               //Stop with rotating, keep where ever it is at this moment
     EngineGoTo = 0;                                                 //Set EngineGoTo to 0
@@ -217,6 +218,7 @@ void loop() {                                                       //Keep loopi
     }
   }
   //--------------------Engine control--------------------
+  //Serial.println("GoTo" + String(EngineGoTo) + " Engine" + String(Engine) + " Step" + String(EngineCurrentStep));
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
       SetEngineOn(false);                                           //Set Engine off
@@ -234,14 +236,16 @@ void loop() {                                                       //Keep loopi
       SetEngineOn(true);                                            //Set Engine on
       if (Engine < abs(EngineGoTo)) {                               //If we need to speed up
         if (EngineGoInSteps == 0) {                                 //If no step amount is given
-          EngineGoInSteps = 1000 ;                                  //Set the step to do amount
-          EngineCurrentStep = EngineGoInSteps;                      //Reset current step
+          EngineGoInSteps = 15 ;                                  //Set the step to do amount
+          EngineCurrentStep = 0;                                    //Reset current step
         }
-        EngineCurrentStep--;                                        //Remove one from the list to do (since we are doing one now)
+        EngineCurrentStep++;                                        //Remove one from the list to do (since we are doing one now)
         if (EngineCurrentStep < EngineGoInSteps / 2) {              //If we are starting up
           //Go to https://www.desmos.com/calculator and past this:    \frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2
           Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
+          Serial.print("A");
         } else {
+          Serial.print("B");
           //Go to https://www.desmos.com/calculator and past this:    -2ba^{-2}\left(x-a\right)^2+b
           Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
         }
@@ -303,6 +307,7 @@ void loop() {                                                       //Keep loopi
   }
   //--------------------LED Control--------------------
   LEDControl();
+  delay(2500);
 }
 
 void SetSteeringOn(bool SteerOn) {                                  //If called with (true) the steering motor will be turned on
