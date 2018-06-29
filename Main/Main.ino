@@ -16,6 +16,7 @@
       4) In boot both above names relays will be turned off (we are talking about ms here I think)
 
 
+
   TODO TEST [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
   TODO TEST [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
 
@@ -67,7 +68,7 @@ byte SensorBack;                                                    //^^
 int Engine;                                                         //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
 int EngineGoTo;                                                     //Engine status stop position
-byte Steering;                                                      //Steering PWM value
+int Steering;                                                       //Steering PWM value
 int SteeringFrom;                                                   //Steering status start position
 int SteeringGoTo;                                                   //Steering status stop position
 
@@ -106,7 +107,7 @@ void setup() {                                                      //This code 
   pinMode(PWO_Steering, OUTPUT);                                    //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
-  FastLED.setBrightness(255);                                       //Scale brightness
+  FastLED.setBrightness(150);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
@@ -124,7 +125,8 @@ void setup() {                                                      //This code 
   digitalWrite(PDO_LEDBlink, HIGH);                                 //Let the LED blink so we know the program has started
   attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyPressed, FALLING); //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
   Serial.println("[!E0]");                                          //Send a 'we did not understand' so the PC will know we are here and see them
-  Serial.setTimeout(5);                                             //Set the timeout time of data read to 5ms
+  Serial.setTimeout(2);                                             //Set the timeout time of data read (ms)
+  PcEverConnected = true;                                           //TEMP TODO We can remove this line, so it will default to not sending data (will take less CPU)
 }
 
 void loop() {                                                       //Keep looping the next code
@@ -142,38 +144,64 @@ void loop() {                                                       //Keep loopi
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
   Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
-  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
-  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
-  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
-  SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
+  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 674, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
+  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 674, 0, 255); //^^
+  SensorRight      = map(analogRead(PAI_SensorRight),      0, 674, 0, 255); //^^
+  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 674, 0, 255); //^^
+  SensorBack       = map(analogRead(PAI_SensorBack),       0, 674, 0, 255); //^^
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
+    /*
+      PC -> Arduino
+      1st Byte = '~'                                            = This is the emergency button state where '~' it's save (Anything else is not save)
+      2nd Byte = 'M' or 'm' or 'S' or 'A' or 'D' or 'd' or 'E'  = (opt1) What Value need to be changed; Motor, motor reversed, Steering, Auto mode on, Debug on, debug off. Or 'E' for Error in data please resend
+      3rd Byte = '0 to 255'                                     = (opt1) Value
+      4th Byte = '#'                                            = (opt1)
+
+      Arduino -> PC
+      1st Byte = '['                                            = Start
+      2nd Byte = 'M' or 'S' or [E]                              = What Value is comming. Or 'E' for Error in data please resend
+      3rd Byte = '-255 to 255'                                  = (opt1) Value
+      4th Byte = ']'                                            = (opt1) Stop
+    */
     Retrieved[0] = Serial.read();                                   //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
     Retrieved[1] = Serial.read();                                   //Read next data
     Retrieved[2] = Serial.parseInt();                               //Read next data (its an int)
     Retrieved[3] = Serial.read();                                   //Just useless, but tells the end of the int
-    Serial.println("RX=0:" + String(Retrieved[0]) + " 1:" + String(Retrieved[1]) + " 2:" + String(Retrieved[2]) + " 3:" + String(Retrieved[3]));
+    //Serial.println("RX=0:" + String(Retrieved[0]) + " 1:" + String(Retrieved[1]) + " 2:" + String(Retrieved[2]) + " 3:" + String(Retrieved[3]));//+ " 4:" + String(Retrieved[4]) + " Number:" + String(Retrieved[11]) + " Sizes:" + String(SizeRetrieved) + ", " + String(SizeRetrievedCalc));
     while (Serial.available() > 0) {                                //If there is still data bunched up (or you accidentally send a line enter "/n/r")
       Serial.print("[?" + String(Serial.read()) + "]");             //Get the data and throw it in the trash
       delay(1);                                                     //Some delay so we are sure we retrieved all the data
     }
-    if (Retrieved[1] == 'R') {                                      //If "82" retrieved (Rotate)
-      OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
-      SteeringGoTo = Retrieved[2];                                  //Set where to rotate to
-    } else if (Retrieved[1] == 'M') {                               //If "77" retrieved (Motor)
-      OverWrite = true;                                             //Set the OverWrite to true to OverWrite the thinking of the Arduino
-      EngineGoTo = Retrieved[2];                                    //Set the EngineGoTo state
-    } else if (Retrieved[1] == 'm') {                               //If "109" retrieved (motor reversed)
-      EngineGoTo *= -1;                                             //Reverse motor
-    } else if (Retrieved[1] == 'A') {                                //If "65" retrieved (Auto mode)
-      OverWrite = false;                                            //reset OverWrite state (Arduino things by it’s self again)
-    } else if (Retrieved[1] == 'D') {                               //If "68" retrieved (Debug)
-      LED_SensorDebug = !LED_SensorDebug;                           //Toggle Debug mode
+    bool DataValid = false;                                         //Set the tetrieved data to be incorrect as default
+    if (Retrieved[0] != 255 and Retrieved[1] != 255 and Retrieved[3] != 255) { //If data is correct (no emthy data has been recieved)
+      DataValid = true;                                             //Set data to be valid
+    } else if (Retrieved[1] == 'E') {                               //If "69" retrieved (Rotate)
+      DataValid = true;                                             //Set data to be valid
     }
-    LastPCStateEngine = "";                                         //Fuck up LastPCStateEngine so it will resend it
-    LastPCStateSteering = "";                                       //Fuck up LastPCStateSteering so it will resend it
+    if (!DataValid) {                                               //Data is invalid
+      Serial.print("[E]");                                          //Request data again
+    } else {
+      if (Retrieved[1] == 'R') {                                    //If "82" retrieved (Rotate)
+        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
+        SteeringGoTo = Retrieved[3];                                //Set where to rotate to
+      } else if (Retrieved[1] == 'M') {                             //If "77" retrieved (Motor)
+        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
+        EngineGoTo = Retrieved[2];                                  //Set the EngineGoTo state
+      } else if (Retrieved[1] == 'm') {                             //If "109" retrieved (motor reversed)
+        OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
+        EngineGoTo = Retrieved[2] * -1;                             //Reverse motor
+      } else if (Retrieved[1] == 'A') {                             //If "65" retrieved (Auto mode)
+        OverWrite = false;                                          //reset OverWrite state (Arduino things by it’s self again)
+      } else if (Retrieved[1] == 'D') {                             //If "68" retrieved (Debug)
+        LED_SensorDebug = true;                                     //Debug mode on
+      } else if (Retrieved[1] == 'd') {                             //If "100" retrieved (Debug)
+        LED_SensorDebug = false;                                    //Debug mode off
+      }
+      LastPCStateEngine = "";                                       //Fuck up LastPCStateEngine so it will resend it
+      LastPCStateSteering = "";                                     //Fuck up LastPCStateSteering so it will resend it
+    }
   }
   if (Retrieved[0] != 126 || Emergency == 0) {                      //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
     //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
@@ -228,7 +256,6 @@ void loop() {                                                       //Keep loopi
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
       if (EngineGoTo > 0) {                                         //If we need to move forward
         SetEngineForward(true);                                     //Set Engine to move forward
-
       } else {                                                      //If we need to move backwards [Switch engine to right state (turn if off if we do this)]
         SetEngineForward(false);                                    //Set Engine to move backwards
       }
@@ -286,15 +313,25 @@ void loop() {                                                       //Keep loopi
   }
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
-  if (PcEverConnected) {                                            //If a PC has ever been connected
+
+
+
+
+
+  Serial.println("E" + String(Engine) + " G" + String(EngineGoTo) + " A" + String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorBack));
+  delay(250);
+
+
+
+
+  if (PcEverConnected) {
     String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwritten if its save)
     if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
       EmergencyButtonState = "~";                                   //Set status of emergency button to save
     }
     String NewPCState = "[" + EmergencyButtonState + String("M") + String(Engine) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateEngine != NewPCState) {                          //If the PC state is not what it should be (and the PC needs an update)
-      Serial.print(NewPCState);                                     //Write the info to the PC
-      delay(10);
+      //Serial.print(NewPCState);                                     //Write the info to the PC
       LastPCStateEngine = NewPCState;                               //Update what the PC should have
     }
     NewPCState = "[" + EmergencyButtonState + String("S") + String(Steering) + "]"; //Create a new state where the pc should be in right now
@@ -403,31 +440,36 @@ void HeadJelle() {                                                  //The code o
   //--------------------Jelle's head--------------------
   static int Z = 0;
   static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
-  static byte MiniumDifference = 5;                                 //B
-  static byte MiniumStepsBackwards = 100;                           //C
-  static float DividerSteering = 10;                                //D
+  static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
+  static byte MiniumStepsBackwards = 500;                           //C Amount of loops to do backwards
+  static float DividerSteering = 10;                                //D 
+  static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backwards
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
-    EngineGoTo = -1;                                                //Set engine state, Will be overwritten when false
-    if (SensorBack < SensorFreeSpaceLimit) {                        //If there is nothing behind us
-      if (SensorRight < SensorFreeSpaceLimit) {                     //If there is nothing right of us
-        SteeringGoTo = -127;                                        //Steer all the way left
-      } else {
-        if (SensorLeft < SensorFreeSpaceLimit) {                    //If there is nothing left of us
-          SteeringGoTo = 127;                                       //Steer all the way right
-        } else {
-          EngineGoTo = 0;                                           //Turn engine off (we can't move backwards)
-        }
-      }
+    if (Z >= MiniumStepsBackwards - 1) {                            //If this is the first step backwards (or rather going to be)
+      EngineGoTo = 0;                                               //Turn engine off (this will forge the engine to break
     } else {
-      EngineGoTo = 0;                                               //Turn engine off (we can't move backwards)
+      EngineGoTo = map(SensorBack, 0, SensorFreeSpaceLimit, 0, 255) * -1 / MaxBackwardsSpeedDevider; //Set engine state, Will be overwritten when false (Remapped so we can use the full raneg [remember we don't move when to close])
+      if (SensorBack < SensorFreeSpaceLimit) {                      //If there is nothing behind us
+        if (SensorRight < SensorFreeSpaceLimit) {                   //If there is nothing right of us
+          SteeringGoTo = -127;                                      //Steer all the way left
+        } else {
+          if (SensorLeft < SensorFreeSpaceLimit) {                  //If there is nothing left of us
+            SteeringGoTo = 127;                                     //Steer all the way right
+          } else {
+            EngineGoTo = 0;                                         //Turn engine off (we can't move backwards)
+          }
+        }
+      } else {
+        EngineGoTo = 0;                                             //Turn engine off (we can't move backwards)
+      }
     }
-  } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) { //If there is nothing in front of us
-    int SensorDiffrence = SensorFrontLeft - SensorFrontRight;       //Calculate difference in sensors
-    if (abs(SensorDiffrence) > MiniumDifference) {                  //If the change is not to small
-      EngineGoTo = (510 - SensorFrontLeft + SensorFrontRight) / 2;  //Set the speed to be the amount of free space between the 2 front sensors
-      if ((SensorDiffrence > 0 and SensorRight < SensorFreeSpaceLimit) or (SensorDiffrence < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
-        SteeringGoTo = (SensorDiffrence / DividerSteering);         //Steer to that side (with the intensity of 'SensorDiffrence/DividerSteering'
+  } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) {  //If there is nothing in front of us
+    int NewTryEngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;                          //Calculate difference in sensors
+    if ((abs(abs(NewTryEngineGoTo) - EngineGoTo) > MiniumDifference) or NewTryEngineGoTo > 250) {   //If the change is not to small
+      EngineGoTo = map(NewTryEngineGoTo, 255 - SensorFreeSpaceLimit, 255, 0, 255);                  //Set the speed to be the amount of free space between the 2 front sensors (Remapped so we can use the full raneg [remember we don't move when to close])
+      if ((NewTryEngineGoTo > 0 and SensorRight < SensorFreeSpaceLimit) or (NewTryEngineGoTo < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
+        SteeringGoTo = (NewTryEngineGoTo / DividerSteering);        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
       } else {
         SteeringGoTo = 0;                                           //Stop steering
       }
@@ -437,6 +479,10 @@ void HeadJelle() {                                                  //The code o
   } else {
     Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
   }
+  if (EngineGoTo > 254) {
+    EngineGoTo = 255;
+  }
+
   //EngineGoInSteps = 1000;                                         //Set the step to do amount
   //EngineCurrentStep = EngineGoInSteps;                            //Reset current step
 }
