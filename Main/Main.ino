@@ -144,11 +144,13 @@ void loop() {                                                       //Keep loopi
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
   Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 674, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
-  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 674, 0, 255); //^^
-  SensorRight      = map(analogRead(PAI_SensorRight),      0, 674, 0, 255); //^^
-  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 674, 0, 255); //^^
-  SensorBack       = map(analogRead(PAI_SensorBack),       0, 674, 0, 255); //^^
+
+  //TODO FIXME CHANGE NUMBER TO 672
+  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 682, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
+  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 682, 0, 255); //^^
+  SensorRight      = map(analogRead(PAI_SensorRight),      0, 682, 0, 255); //^^
+  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 682, 0, 255); //^^
+  SensorBack       = map(analogRead(PAI_SensorBack),       0, 682, 0, 255); //^^
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
@@ -279,7 +281,7 @@ void loop() {                                                       //Keep loopi
       //        }
     }
   }
-  analogWrite(PWO_Motor, abs(Engine));                                   //Write the value to the engine
+  analogWrite(PWO_Motor, abs(Engine));                              //Write the value to the engine
   //--------------------Steering control--------------------
   //SteeringGoTo      = -127 tot 127    = Head program asked to go here
   //Steering          = 0    tot 255    = The PWM value right now
@@ -317,10 +319,8 @@ void loop() {                                                       //Keep loopi
 
 
 
-
-  Serial.println("E" + String(Engine) + " G" + String(EngineGoTo) + " A" + String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorBack));
-  delay(250);
-
+  //TODO FIXME
+  Serial.println("E" + String(Engine) + " G" + String(EngineGoTo) + " A" + String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorBack) + " ");
 
 
 
@@ -331,12 +331,24 @@ void loop() {                                                       //Keep loopi
     }
     String NewPCState = "[" + EmergencyButtonState + String("M") + String(Engine) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateEngine != NewPCState) {                          //If the PC state is not what it should be (and the PC needs an update)
+      
+      
+      //TODO FIXME
       //Serial.print(NewPCState);                                     //Write the info to the PC
+      
+      
+      
       LastPCStateEngine = NewPCState;                               //Update what the PC should have
     }
     NewPCState = "[" + EmergencyButtonState + String("S") + String(Steering) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateSteering != NewPCState) {                        //If the PC state is not what it should be (and the PC needs an update)
+      
+      
+      //TODO FIXME
       //Serial.print(NewPCState);                                     //Write the info to the PC
+      
+      
+      
       LastPCStateSteering = NewPCState;                             //Update what the PC should have
     }
   }
@@ -442,14 +454,14 @@ void HeadJelle() {                                                  //The code o
   static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
   static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
   static byte MiniumStepsBackwards = 500;                           //C Amount of loops to do backwards
-  static float DividerSteering = 10;                                //D 
-  static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backwards
+  static float DividerSteering = 10;                                //D
+  static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
     if (Z >= MiniumStepsBackwards - 1) {                            //If this is the first step backwards (or rather going to be)
       EngineGoTo = 0;                                               //Turn engine off (this will forge the engine to break
     } else {
-      EngineGoTo = map(SensorBack, 0, SensorFreeSpaceLimit, 0, 255) * -1 / MaxBackwardsSpeedDevider; //Set engine state, Will be overwritten when false (Remapped so we can use the full raneg [remember we don't move when to close])
+      EngineGoTo = map(SensorBack, 0, SensorFreeSpaceLimit, 255, 0) * -1 / MaxBackwardsSpeedDevider; //Set engine state, Will be overwritten when false (Remapped so we can use the full raneg [remember we don't move when to close])
       if (SensorBack < SensorFreeSpaceLimit) {                      //If there is nothing behind us
         if (SensorRight < SensorFreeSpaceLimit) {                   //If there is nothing right of us
           SteeringGoTo = -127;                                      //Steer all the way left
