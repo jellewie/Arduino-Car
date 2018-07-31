@@ -15,8 +15,6 @@
       3) The PWM is not set, so no voltage would be set
       4) In boot both above names relays will be turned off (we are talking about ms here I think)
 
-
-
   TODO TEST [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
   TODO TEST [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
 
