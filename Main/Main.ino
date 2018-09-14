@@ -145,11 +145,11 @@ void loop() {                                                       //Keep loopi
   Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
 
   //TODO FIXME CHANGE NUMBER TO 672
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 682, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
-  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 682, 0, 255); //^^
-  SensorRight      = map(analogRead(PAI_SensorRight),      0, 682, 0, 255); //^^
-  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 682, 0, 255); //^^
-  SensorBack       = map(analogRead(PAI_SensorBack),       0, 682, 0, 255); //^^
+  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
+  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
+  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
+  SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
+  SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
