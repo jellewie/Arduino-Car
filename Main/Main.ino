@@ -25,35 +25,35 @@
 #include "interrupt.h"                                              //Include the interrupt file so we can use interrupts
 //Progam includes all .INO files into this one, so we include "LEDControl.INO" automaticly
 
-//const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
-const byte PWO_LED = 5;                                             //Where the <LED strip> is connected to
-const byte PWO_Motor = 6;                                           //Frequency controller motor relay
-const byte PWO_Steering = 7;                                        //Frequency controller steering relay
-const byte PDO_LEDBlink = 13;                                       //LED that’s blinks each loop relay
-const byte PDO_MotorOnOff = 23;                           //K1      //Steering on/off relay
-const byte PDO_MotorReversePoles = 25;                    //K2      //Reverse polarity motor relay
-const byte PDO_MotorBrakeAnchor = 27;                     //K3      //Motor brake anchor relay (short the motor)
-const byte PDO_SteeringOnOff = 29;                        //K4      //Steering on/off relay
-const byte PDO_SteeringReversePoles = 31;                 //K5      //Reverse polarity steering relay
-//const byte PDO_SpareRelay = 33;                         //K6      //(no pinMode set)
-const byte PDO_MotorReversePoles2 = 35;                   //K7      //Reverse polarity motor relay
-const byte PDO_SteeringReversePoles2 = 37;                //K8      //Reverse polarity steering relay
-const byte PDO_Emergency = 53;                                      //Emergency button feedback
-const byte PAI_SensorFrontLeft = A0;
-const byte PAI_SensorFrontRight = A1;
-const byte PAI_SensorRight = A2;
-const byte PAI_SensorBack = A3;
-const byte PAI_SensorLeft = A4;
-const byte PAI_SensorPotmeterStuur = A5;
+//static const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
+static const byte PWO_LED = 5;                                      //Where the <LED strip> is connected to
+static const byte PWO_Motor = 6;                                    //Frequency controller motor relay
+static const byte PWO_Steering = 7;                                 //Frequency controller steering relay
+static const byte PDO_LEDBlink = 13;                                //LED that’s blinks each loop relay
+static const byte PDO_MotorOnOff = 23;                    //K1      //Steering on/off relay
+static const byte PDO_MotorReversePoles = 25;             //K2      //Reverse polarity motor relay
+static const byte PDO_MotorBrakeAnchor = 27;              //K3      //Motor brake anchor relay (short the motor)
+static const byte PDO_SteeringOnOff = 29;                 //K4      //Steering on/off relay
+static const byte PDO_SteeringReversePoles = 31;          //K5      //Reverse polarity steering relay
+//static const byte PDO_SpareRelay = 33;                  //K6      //(no pinMode set)
+static const byte PDO_MotorReversePoles2 = 35;            //K7      //Reverse polarity motor relay
+static const byte PDO_SteeringReversePoles2 = 37;         //K8      //Reverse polarity steering relay
+static const byte PDO_Emergency = 53;                               //Emergency button feedback
+static const byte PAI_SensorFrontLeft = 0;
+static const byte PAI_SensorFrontRight = 1;
+static const byte PAI_SensorRight = 2;
+static const byte PAI_SensorBack = 3;
+static const byte PAI_SensorLeft = 4;
+static const byte PAI_SensorPotmeterStuur = 5;
 
 //Just some configurable things
-const int DelayPole = 50;                                           //The delay after/for the reverse-ment of poles (reverse engine moment)
-const int DelayAncher = 10;                                         //The delay after/for the anchor is turned on
-const int MaxValuePWM = 255 / 2;                                    //Max number we can send to the Engine frequency generator
-const int TotalLEDs = (48 + 36) * 2;                                //The total amount of LEDS in the strip
-const byte SteeringMinimum = 25;                                    //Below this diffrence we won't steer
-const unsigned int AnimationTimeEmergency = 1000;                   //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
-const unsigned int AnimationTimeBooting = 2000;                     //Delay in ms for the animation on start
+static const int DelayPole = 50;                                    //The delay after/for the reverse-ment of poles (reverse engine moment)
+static const int DelayAncher = 10;                                  //The delay after/for the anchor is turned on
+static const int MaxValuePWM = 255 / 2;                             //Max number we can send to the Engine frequency generator
+static const int TotalLEDs = (48 + 36) * 2;                         //The total amount of LEDS in the strip
+static const byte SteeringMinimum = 25;                             //Below this diffrence we won't steer
+static const unsigned int AnimationTimeEmergency = 1000;            //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
+static const unsigned int AnimationTimeBooting = 2000;              //Delay in ms for the animation on start
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
