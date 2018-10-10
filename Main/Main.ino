@@ -6,17 +6,17 @@
   TODO FIXME [MID] Add a nice engine PWM down curve
   TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
-  TODO FIXME [HIGH] Invert Relay 1-8 since LOW=ON
+  TEST [HIGH] Invert Relay 1-8 since LOW=ON
 
-  TODO FIXME [HIGH] Test!!!! if on startup power would be send to the engine. the relays will blow if this happens! so test first
+ TEST [HIGH] if on startup power would be send to the engine. the relays will blow if this happens! so test first
   Thoughts of Jelle on this issue: (It would be fine, but checking doesn't hurt)
       1) The ON/OFF relay will turn on
       2) The SHORT ENGING relay will turn on
       3) The PWM is not set, so no voltage would be set
-      4) In boot both above names relays will be turned off (we are talking about ms here I think)
+      4) In boot both above names relays will be turned off (we are talking about <ms here I think)
 
-  TODO TEST [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
-  TODO TEST [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
+  TODO FIXME [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
+  TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
@@ -125,7 +125,6 @@ void setup() {                                                      //This code 
   attachInterrupt(digitalPinToInterrupt(PDI_Emergency), EmergencyPressed, FALLING); //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
   Serial.println("[!E0]");                                          //Send a 'we did not understand' so the PC will know we are here and see them
   Serial.setTimeout(2);                                             //Set the timeout time of data read (ms)
-  PcEverConnected = true;                                           //TEMP TODO We can remove this line, so it will default to not sending data (will take less CPU)
 }
 
 void loop() {                                                       //Keep looping the next code
@@ -261,44 +260,29 @@ void loop() {                                                       //Keep loopi
       SetEngineOn(true);                                            //Set Engine on
 
 
+    //TODO FIXME This part of the code should still be tested
+    //This should increase of decrease the Engine PWM each 10ms (Instead of the loop timer)
 
-      
+    
+      static unsigned long TimeLastTimeB = 0;                       //The last time we run this code
+      const static unsigned int TimeDelayB = 10;                    //Delay in ms for each step of the engine (A loop need to minum be this length before next step)
+      if (TimeCurrent - TimeLastTimeB >= TimeDelayB) {              //If to much time has passed since last step
+        TimeLastTimeB = TimeCurrent;                                //Set last time executed as now
+        digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));     //Let the LED blink so we know the program is running
 
-
-
-
-
-
-
-
-      if (Engine < EngineGoTo) {                                    //If we need to speed up
-        Engine++;
-      } else {                                                      //If we need to speed down
-        Engine--;                                                   //remove 1 to the engine speed
+        if (Engine < EngineGoTo) {                                  //If we need to speed up
+          Engine++;
+        } else {                                                    //If we need to speed down
+          Engine--;                                                 //remove 1 to the engine speed
+        }
       }
-      //        if (EngineGoInSteps == 0) {                                 //If no step amount is given
-      //          EngineGoInSteps = 15 ;                                    //Set the step to do amount
-      //          EngineCurrentStep = 0;                                    //Reset current step
-      //        }
-      //        EngineCurrentStep++;                                        //Remove one from the list to do (since we are doing one now)
-      //        if (EngineCurrentStep < EngineGoInSteps / 2) {              //If we are starting up
-      //          //Go to https://www.desmos.com/calculator and past this:    \frac{\frac{b}{2}}{\left(\frac{a}{2}\cdot\ \frac{a}{2}\right)}x^2
-      //          Engine = MaxValuePWM / 2 / (EngineGoInSteps * EngineGoInSteps / 4) * EngineCurrentStep * EngineCurrentStep;
-      //        } else {
-      //          //Go to https://www.desmos.com/calculator and past this:    -2ba^{-2}\left(x-a\right)^2+b
-      //          Engine = -2 * MaxValuePWM * pow(EngineGoInSteps, -2) * (EngineCurrentStep - EngineGoInSteps) * (EngineCurrentStep - EngineGoInSteps) + MaxValuePWM;
-      //        }
     }
   }
   analogWrite(PWO_Motor, abs(Engine));                              //Write the value to the engine
   //--------------------Steering control--------------------
-  //SteeringGoTo      = -127 tot 127    = Head program asked to go here
   //Steering          = 0    tot 255    = The PWM value right now
   //SteeringReadNow() = -127 tot 127    = The place where the steering is at
-
-  //SteeringNow       = 0    tot 255    = The place where the steering is at
-  //int SteeringNow = analogRead(PAI_SensorPotmeterStuur);
-
+  //SteeringGoTo      = -127 tot 127    = Head program asked to go here
   if (SteeringGoTo < 0) {                                           //If we are going to rotate to the left
     LED_Left = true;                                                //Set left LED to be on
   } else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
@@ -324,15 +308,6 @@ void loop() {                                                       //Keep loopi
   }
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
-
-
-
-
-  //TODO FIXME
-  Serial.println("E" + String(Engine) + " G" + String(EngineGoTo) + " A" + String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorBack) + " ");
-
-
-
   if (PcEverConnected) {
     String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwritten if its save)
     if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
@@ -340,24 +315,12 @@ void loop() {                                                       //Keep loopi
     }
     String NewPCState = "[" + EmergencyButtonState + String("M") + String(Engine) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateEngine != NewPCState) {                          //If the PC state is not what it should be (and the PC needs an update)
-
-
-      //TODO FIXME
-      //Serial.print(NewPCState);                                     //Write the info to the PC
-
-
-
+      Serial.print(NewPCState);                                     //Write the info to the PC
       LastPCStateEngine = NewPCState;                               //Update what the PC should have
     }
     NewPCState = "[" + EmergencyButtonState + String("S") + String(Steering) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateSteering != NewPCState) {                        //If the PC state is not what it should be (and the PC needs an update)
-
-
-      //TODO FIXME
-      //Serial.print(NewPCState);                                     //Write the info to the PC
-
-
-
+      Serial.print(NewPCState);                                     //Write the info to the PC
       LastPCStateSteering = NewPCState;                             //Update what the PC should have
     }
   }
