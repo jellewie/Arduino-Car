@@ -38,7 +38,7 @@ static const byte PDO_SteeringReversePoles = 31;          //K5      //Reverse po
 //static const byte PDO_SpareRelay = 33;                  //K6      //(no pinMode set)
 static const byte PDO_MotorReversePoles2 = 35;            //K7      //Reverse polarity motor relay
 static const byte PDO_SteeringReversePoles2 = 37;         //K8      //Reverse polarity steering relay
-static const byte PDO_Emergency = 53;                               //Emergency button feedback
+static const byte PDI_Emergency = 53;                               //Emergency button feedback
 static const byte PAI_SensorFrontLeft = 0;
 static const byte PAI_SensorFrontRight = 1;
 static const byte PAI_SensorRight = 2;
@@ -94,7 +94,7 @@ void setup() {                                                      //This code 
   pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
   pinMode(PDO_MotorReversePoles2, OUTPUT);                          //^^
   pinMode(PDO_SteeringReversePoles2, OUTPUT);                       //^^
-  pinMode(PDO_Emergency, INPUT);                                    //^^
+  pinMode(PDI_Emergency, INPUT);                                    //^^
   pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
   pinMode(PAI_SensorFrontRight, INPUT);                             //^^
   pinMode(PAI_SensorRight, INPUT);                                  //^^
@@ -106,7 +106,7 @@ void setup() {                                                      //This code 
   pinMode(PWO_Steering, OUTPUT);                                    //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
-  FastLED.setBrightness(150);                                       //Scale brightness
+  FastLED.setBrightness(250);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
@@ -122,7 +122,7 @@ void setup() {                                                      //This code 
   FastLED.show();                                                   //Update
   Retrieved[0] = 126;                                               //Fake the emergency button from the PC, (just once on boot so when you connect the PC the PC takes this over)
   digitalWrite(PDO_LEDBlink, HIGH);                                 //Let the LED blink so we know the program has started
-  attachInterrupt(digitalPinToInterrupt(PDO_Emergency), EmergencyPressed, FALLING); //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
+  attachInterrupt(digitalPinToInterrupt(PDI_Emergency), EmergencyPressed, FALLING); //If the emergency button is pressed, turn motor off (this is checked 16.000.000 times / second or so
   Serial.println("[!E0]");                                          //Send a 'we did not understand' so the PC will know we are here and see them
   Serial.setTimeout(2);                                             //Set the timeout time of data read (ms)
   PcEverConnected = true;                                           //TEMP TODO We can remove this line, so it will default to not sending data (will take less CPU)
@@ -130,8 +130,8 @@ void setup() {                                                      //This code 
 
 void loop() {                                                       //Keep looping the next code
   //Just some things we only need in this loop
-  static int EngineGoInSteps;                                       //The amount to steps to execute the move in
-  static int EngineCurrentStep;                                     //The current step we are in
+  //static int EngineGoInSteps;                                       //The amount to steps to execute the move in
+  //static int EngineCurrentStep;                                     //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
   static unsigned long TimeLastTime = 0;                            //The last time we run this code
@@ -139,12 +139,10 @@ void loop() {                                                       //Keep loopi
   unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
   if (TimeCurrent - TimeLastTime >= TimeDelay) {                    //If to much time has passed
-    TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not fucking, we are talking about code here)
+    TimeLastTime = TimeCurrent;                                     //Set last time executed as now (since we are doing it right now, and no not with humans, we are talking about code here stay focussed)
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
-  Emergency = digitalRead(PDO_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
-
-  //TODO FIXME CHANGE NUMBER TO 672
+  Emergency = digitalRead(PDI_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
   SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
   SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
   SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
@@ -251,7 +249,7 @@ void loop() {                                                       //Keep loopi
       SetEngineOn(false);                                           //Set Engine off
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
-      EngineGoInSteps = 0;                                          //Reset
+      //EngineGoInSteps = 0;                                          //Reset
     }
   } else {
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
@@ -261,6 +259,18 @@ void loop() {                                                       //Keep loopi
         SetEngineForward(false);                                    //Set Engine to move backwards
       }
       SetEngineOn(true);                                            //Set Engine on
+
+
+
+      
+
+
+
+
+
+
+
+
       if (Engine < EngineGoTo) {                                    //If we need to speed up
         Engine++;
       } else {                                                      //If we need to speed down
@@ -330,24 +340,24 @@ void loop() {                                                       //Keep loopi
     }
     String NewPCState = "[" + EmergencyButtonState + String("M") + String(Engine) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateEngine != NewPCState) {                          //If the PC state is not what it should be (and the PC needs an update)
-      
-      
+
+
       //TODO FIXME
       //Serial.print(NewPCState);                                     //Write the info to the PC
-      
-      
-      
+
+
+
       LastPCStateEngine = NewPCState;                               //Update what the PC should have
     }
     NewPCState = "[" + EmergencyButtonState + String("S") + String(Steering) + "]"; //Create a new state where the pc should be in right now
     if (LastPCStateSteering != NewPCState) {                        //If the PC state is not what it should be (and the PC needs an update)
-      
-      
+
+
       //TODO FIXME
       //Serial.print(NewPCState);                                     //Write the info to the PC
-      
-      
-      
+
+
+
       LastPCStateSteering = NewPCState;                             //Update what the PC should have
     }
   }
@@ -452,7 +462,7 @@ void HeadJelle() {                                                  //The code o
   static int Z = 0;
   static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
   static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
-  static byte MiniumStepsBackwards = 500;                           //C Amount of loops to do backwards
+  static byte MiniumStepsBackwards = 255;                           //C Amount of loops to do backwards
   static float DividerSteering = 10;                                //D
   static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
   if (Z > 0) {                                                      //If we need to move backwards
