@@ -60,7 +60,7 @@ void setup() {                                                      //This code 
   FastLED.setBrightness(255);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
-  unsigned int TimeDelay = 1000;                                    //Delay in ms for the animation
+  unsigned int TimeDelay = 3000;                                    //Delay in ms for the animation
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
   unsigned long TimeCurrent = 0;                                    //No time has passed since start time
   while (TimeCurrent < TimeDelay) {                                 //While we still need to show an animation

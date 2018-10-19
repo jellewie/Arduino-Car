@@ -1,3 +1,12 @@
+//LED test doesnt work here
+
+
+
+
+
+
+
+
 /*
   Program written by JelleWho as a school project for the self driving car
 */
@@ -116,6 +125,7 @@ void setup() {                                                      //This code 
   Serial.println("[!E0]");                                          //Send a 'we did not understand' so the PC will know we are here and see them
   Serial.setTimeout(2);                                             //Set the timeout time of data read (ms)
   PcEverConnected = true;                                           //TEMP TODO We can remove this line, so it will default to not sending data (will take less CPU)
+  MSG = " ";
 }
 
 void loop() {
@@ -124,6 +134,8 @@ void loop() {
       Serial.read(); //Remove all send data
     }
     Step++;                           //Goto next step
+    Serial.println("Next step") + Step;
+    MSG = " ";
   }
   //==============================================
   //ANALOG INPUTS (Sensors)
@@ -135,37 +147,37 @@ void loop() {
       Serial.println("Press and unpress the button");
     }
   } else if (Step == 1) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorFrontLeft);
+    MSGValue = analogRead(PAI_SensorFrontLeft);
     if (MSG == " ") {
       MSG = "Sensor Front Left state:";
       Serial.println("Move infront of the sensor");
     }
   } else if (Step == 2) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorFrontRight);
+    MSGValue = analogRead(PAI_SensorFrontRight);
     if (MSG == " ") {
       MSG = "Sensor Front Right state:";
       Serial.println("Move infront of the sensor");
     }
   } else if (Step == 3) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorRight);
+    MSGValue = analogRead(PAI_SensorRight);
     if (MSG == " ") {
       MSG = "Sensor Righ state:";
       Serial.println("Move infront of the sensor");
     }
   } else if (Step == 4) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorBack);
+    MSGValue = analogRead(PAI_SensorBack);
     if (MSG == " ") {
       MSG = "Sensor Back state:";
       Serial.println("Move infront of the sensor");
     }
   } else if (Step == 5) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorLeft);
+    MSGValue = analogRead(PAI_SensorLeft);
     if (MSG == " ") {
       MSG = "Sensor Left state:";
       Serial.println("Move infront of the sensor");
     }
   } else if (Step == 6) {                                                   //Next test
-    MSGValue = digitalRead(PAI_SensorPotmeterStuur);
+    MSGValue = analogRead(PAI_SensorPotmeterStuur);
     if (MSG == " ") {
       MSG = "Stuur Sensor PotmeterStuur state:";
       Serial.println("Move infront of the sensor");
@@ -224,7 +236,7 @@ void loop() {
     }
   } else if (Step == 13) {                                                   //Next test
     digitalWrite(PDO_MotorReversePoles2, LOW);
-    digitalWrite(PDO_MotorReversePoles2, !digitalRead(PDO_MotorReversePoles2));
+    digitalWrite(PDO_SteeringReversePoles2, !digitalRead(PDO_SteeringReversePoles2));
     if (MSG == " ") {
       MSG = "K8 blink - MotorReversePoles2";
       Serial.println("Check if relai(s) are turning on/off");
@@ -302,15 +314,15 @@ void loop() {
     }
   }
 
-
-
-
-
-  if (MSG != "") {
+  if (MSG == ""){} else {
     Serial.println(MSG);
+    MSG = "";
   }
   if (MSGValue != MSGValueOLD) {
     Serial.println(MSGValue);
     MSGValueOLD = MSGValue;
   }
+  
+  delay(500);
+  FastLED.show();
 }//this is the end, hope you had fun
