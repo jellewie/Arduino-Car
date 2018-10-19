@@ -8,7 +8,7 @@
   TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   TEST [HIGH] Invert Relay 1-8 since LOW=ON
 
- TEST [HIGH] if on startup power would be send to the engine. the relays will blow if this happens! so test first
+  TEST [HIGH] if on startup power would be send to the engine. the relays will blow if this happens! so test first
   Thoughts of Jelle on this issue: (It would be fine, but checking doesn't hurt)
       1) The ON/OFF relay will turn on
       2) The SHORT ENGING relay will turn on
@@ -53,7 +53,7 @@ static const int MaxValuePWM = 255 / 2;                             //Max number
 static const int TotalLEDs = (48 + 36) * 2;                         //The total amount of LEDS in the strip
 static const byte SteeringMinimum = 25;                             //Below this diffrence we won't steer
 static const unsigned int AnimationTimeEmergency = 1000;            //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
-static const unsigned int AnimationTimeBooting = 2000;              //Delay in ms for the animation on start
+static const unsigned int AnimationTimeBooting = 3000;              //Delay in ms for the animation on start
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
@@ -300,10 +300,10 @@ void loop() {                                                       //Keep loopi
       SetEngineOn(true);                                            //Set Engine on
 
 
-    //TODO FIXME This part of the code should still be tested
-    //This should increase of decrease the Engine PWM each 10ms (Instead of the loop timer)
+      //TODO FIXME This part of the code should still be tested
+      //This should increase of decrease the Engine PWM each 10ms (Instead of the loop timer)
 
-    
+
       static unsigned long TimeLastTimeB = 0;                       //The last time we run this code
       const static unsigned int TimeDelayB = 10;                    //Delay in ms for each step of the engine (A loop need to minum be this length before next step)
       if (TimeCurrent - TimeLastTimeB >= TimeDelayB) {              //If to much time has passed since last step
