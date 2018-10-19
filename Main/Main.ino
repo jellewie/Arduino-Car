@@ -177,13 +177,10 @@ void loop() {                                                       //Keep loopi
   {
     SensorAverageCounter++;                                             //Add one to the counter so next place would be 1 higher
   }
-  byte SensorFrontLeft = frontSensorLeftTotal / 255;                    //Get the average of the last 255 steps
-  byte SensorFrontRight = frontSensorRightTotal / 255;                  //Get the average of the last 255 steps
+  byte SensorFrontLeft = frontSensorLeftTotal / SensorAverageOf;        //Get the average of the last 255 steps
+  byte SensorFrontRight = frontSensorRightTotal / SensorAverageOf;      //Get the average of the last 255 steps
   Serial.println("FSAL" + SensorFrontLeft);
   Serial.println("FSAR" + SensorFrontRight);
-
-
-
 
 
 
