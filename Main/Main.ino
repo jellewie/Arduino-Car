@@ -64,6 +64,21 @@ byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
 byte SensorBack;                                                    //^^
 
+
+
+//<Setup>
+byte SensorAverageCounter;                                          //This counter keeps track on where we are in the average array
+byte frontSensorLeftTotal = 0;                                      //This is the total amount
+byte frontSensorRightTotal = 0;                                     //This is the total amount
+static const byte SensorAverageOf = 100;
+byte frontSensorLeftArray[SensorAverageOf];                         //Create the array for the left sensor
+byte frontSensorRightArray[SensorAverageOf];                        //Create the array for the right sensor
+
+
+
+
+
+
 int Engine;                                                         //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
 int EngineGoTo;                                                     //Engine status stop position
@@ -142,11 +157,36 @@ void loop() {                                                       //Keep loopi
     digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));         //Let the LED blink so we know the program is running
   }
   Emergency = digitalRead(PDI_Emergency);                           //Get emergency button state (we save this so this state is contestant in this loop)
-  SensorFrontLeft  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
-  SensorFrontRight = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^^
-  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //^^
+  SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
   SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
   SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
+
+  frontSensorLeftTotal -= frontSensorLeftArray[SensorAverageCounter];   //Remove the measurements of x steps ago
+  frontSensorRightTotal -= frontSensorRightArray[SensorAverageCounter]; //Remove the measurements of x steps ago
+
+  frontSensorLeftArray[SensorAverageCounter] = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255);  //Get the current measurement and add it in its place in it's array
+  frontSensorRightArray[SensorAverageCounter] = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
+
+  frontSensorLeftTotal += frontSensorLeftArray[SensorAverageCounter];   //Add the new measurement
+  frontSensorRightTotal += frontSensorRightArray[SensorAverageCounter]; //Add the new measurement
+
+  if (SensorAverageCounter >= SensorAverageOf) {
+    SensorAverageCounter = 0;
+  }
+  else
+  {
+    SensorAverageCounter++;                                             //Add one to the counter so next place would be 1 higher
+  }
+  byte SensorFrontLeft = frontSensorLeftTotal / 255;                    //Get the average of the last 255 steps
+  byte SensorFrontRight = frontSensorRightTotal / 255;                  //Get the average of the last 255 steps
+  Serial.println("FSAL" + SensorFrontLeft);
+  Serial.println("FSAR" + SensorFrontRight);
+
+
+
+
+
+
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
