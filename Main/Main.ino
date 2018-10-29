@@ -64,20 +64,12 @@ byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
 byte SensorBack;                                                    //^^
 
-
-
-//<Setup>
-byte SensorAverageCounter;                                          //This counter keeps track on where we are in the average array
-byte frontSensorLeftTotal = 0;                                      //This is the total amount
-byte frontSensorRightTotal = 0;                                     //This is the total amount
-static const byte SensorAverageOf = 100;
+byte SensorAverageCounter = 0;                                      //This counter keeps track on where we are in the average array
+int frontSensorLeftTotal = 0;                                       //This is the total amount
+int frontSensorRightTotal = 0;                                      //This is the total amount
+static const byte SensorAverageOf = 100;                            //Take a average of this amount of measurements
 byte frontSensorLeftArray[SensorAverageOf];                         //Create the array for the left sensor
 byte frontSensorRightArray[SensorAverageOf];                        //Create the array for the right sensor
-
-
-
-
-
 
 int Engine;                                                         //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
@@ -161,26 +153,37 @@ void loop() {                                                       //Keep loopi
   SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
   SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
 
-  frontSensorLeftTotal -= frontSensorLeftArray[SensorAverageCounter];   //Remove the measurements of x steps ago
-  frontSensorRightTotal -= frontSensorRightArray[SensorAverageCounter]; //Remove the measurements of x steps ago
-
-  frontSensorLeftArray[SensorAverageCounter] = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255);  //Get the current measurement and add it in its place in it's array
+  if (SensorAverageCounter < SensorAverageOf - 1) {                 //-1 since arrays starts at 0 (else we would have a overflow error, writting to [100] while [99] is entry 100)
+    SensorAverageCounter++;                                         //Add one to the counter so next place would be 1 higher
+  } else {
+    SensorAverageCounter = 0;                                       //Reset counter
+  }
+  frontSensorLeftTotal  -= frontSensorLeftArray [SensorAverageCounter]; //Remove the old measurements of x steps ago (to the total)
+  frontSensorRightTotal -= frontSensorRightArray[SensorAverageCounter]; //Remove the old measurements of x steps ago (to the total)
+  frontSensorLeftArray[SensorAverageCounter]  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
   frontSensorRightArray[SensorAverageCounter] = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
+  frontSensorLeftTotal  += frontSensorLeftArray [SensorAverageCounter]; //Add the new measurement (to the total)
+  frontSensorRightTotal += frontSensorRightArray[SensorAverageCounter]; //Add the new measurement (to the total)
 
-  frontSensorLeftTotal += frontSensorLeftArray[SensorAverageCounter];   //Add the new measurement
-  frontSensorRightTotal += frontSensorRightArray[SensorAverageCounter]; //Add the new measurement
+  byte SensorFrontLeft  = frontSensorLeftTotal / SensorAverageOf;   //Get the average of all the steps
+  byte SensorFrontRight = frontSensorRightTotal / SensorAverageOf;  //Get the average of all the steps
 
-  if (SensorAverageCounter >= SensorAverageOf) {
-    SensorAverageCounter = 0;
-  }
-  else
-  {
-    SensorAverageCounter++;                                             //Add one to the counter so next place would be 1 higher
-  }
-  byte SensorFrontLeft = frontSensorLeftTotal / SensorAverageOf;        //Get the average of the last 255 steps
-  byte SensorFrontRight = frontSensorRightTotal / SensorAverageOf;      //Get the average of the last 255 steps
-  Serial.println("FSAL" + SensorFrontLeft);
-  Serial.println("FSAR" + SensorFrontRight);
+
+
+
+
+
+
+
+  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight));
+
+
+
+
+
+
+
+
 
 
 
