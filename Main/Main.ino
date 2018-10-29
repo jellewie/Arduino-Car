@@ -54,6 +54,7 @@ static const int TotalLEDs = (48 + 36) * 2;                         //The total 
 static const byte SteeringMinimum = 25;                             //Below this diffrence we won't steer
 static const unsigned int AnimationTimeEmergency = 1000;            //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
 static const unsigned int AnimationTimeBooting = 3000;              //Delay in ms for the animation on start
+static const byte SensorAverageOf = 100;                            //Take a average of this amount of measurements
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
@@ -64,10 +65,6 @@ byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
 byte SensorBack;                                                    //^^
 
-byte SensorAverageCounter = 0;                                      //This counter keeps track on where we are in the average array
-int frontSensorLeftTotal = 0;                                       //This is the total amount
-int frontSensorRightTotal = 0;                                      //This is the total amount
-static const byte SensorAverageOf = 100;                            //Take a average of this amount of measurements
 byte frontSensorLeftArray[SensorAverageOf];                         //Create the array for the left sensor
 byte frontSensorRightArray[SensorAverageOf];                        //Create the array for the right sensor
 
@@ -90,27 +87,27 @@ bool LED_Forwards;                                                  //If the dri
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
-  pinMode(PDO_MotorOnOff, OUTPUT);                                  //  (A) Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
-  digitalWrite(PDO_MotorOnOff, HIGH);                               //Set Relay to be OFF        (Relay inversed)
-  pinMode(PDO_SteeringOnOff, OUTPUT);                               //^^(A)
-  digitalWrite(PDO_SteeringOnOff, HIGH);                            //Set Relay to be OFF        (Relay inversed)
-  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^(A)
-  pinMode(PDO_LEDBlink, OUTPUT);                                    //^^
-  pinMode(PDO_MotorReversePoles, OUTPUT);                           //^^
-  pinMode(PDO_MotorBrakeAnchor, OUTPUT);                            //^^
-  pinMode(PDO_SteeringReversePoles, OUTPUT);                        //^^
-  pinMode(PDO_MotorReversePoles2, OUTPUT);                          //^^
-  pinMode(PDO_SteeringReversePoles2, OUTPUT);                       //^^
-  pinMode(PDI_Emergency, INPUT);                                    //^^
-  pinMode(PAI_SensorFrontLeft, INPUT);                              //^^
-  pinMode(PAI_SensorFrontRight, INPUT);                             //^^
-  pinMode(PAI_SensorRight, INPUT);                                  //^^
-  pinMode(PAI_SensorBack, INPUT);                                   //^^
-  pinMode(PAI_SensorLeft, INPUT);                                   //^^
-  pinMode(PAI_SensorPotmeterStuur, INPUT);                          //^^
-  pinMode(PWO_LED, OUTPUT);                                         //^^
-  pinMode(PWO_Motor, OUTPUT);                                       //^^
-  pinMode(PWO_Steering, OUTPUT);                                    //^^
+  pinMode(PDO_MotorOnOff,             OUTPUT);                      //  (A) Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
+  digitalWrite(PDO_MotorOnOff,        HIGH);                        //Set Relay to be OFF        (Relay inversed)
+  pinMode(PDO_SteeringOnOff,          OUTPUT);                      //^^(A)
+  digitalWrite(PDO_SteeringOnOff,     HIGH);                        //Set Relay to be OFF        (Relay inversed)
+  pinMode(PDO_MotorReversePoles,      OUTPUT);                      //^^(A)
+  pinMode(PDO_LEDBlink,               OUTPUT);                      //^^
+  pinMode(PDO_MotorReversePoles,      OUTPUT);                      //^^
+  pinMode(PDO_MotorBrakeAnchor,       OUTPUT);                      //^^
+  pinMode(PDO_SteeringReversePoles,   OUTPUT);                      //^^
+  pinMode(PDO_MotorReversePoles2,     OUTPUT);                      //^^
+  pinMode(PDO_SteeringReversePoles2,  OUTPUT);                      //^^
+  pinMode(PWO_LED,                    OUTPUT);                      //^^
+  pinMode(PWO_Motor,                  OUTPUT);                      //^^
+  pinMode(PWO_Steering,               OUTPUT);                      //^^
+  pinMode(PDI_Emergency,              INPUT);                       //^^
+  pinMode(PAI_SensorFrontLeft,        INPUT);                       //^^
+  pinMode(PAI_SensorFrontRight,       INPUT);                       //^^
+  pinMode(PAI_SensorRight,            INPUT);                       //^^
+  pinMode(PAI_SensorBack,             INPUT);                       //^^
+  pinMode(PAI_SensorLeft,             INPUT);                       //^^
+  pinMode(PAI_SensorPotmeterStuur,    INPUT);                       //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
   FastLED.setBrightness(250);                                       //Scale brightness
@@ -141,6 +138,9 @@ void loop() {                                                       //Keep loopi
   static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
   static unsigned long TimeLastTime = 0;                            //The last time we run this code
+  static byte SensorAverageCounter = 0;                             //This counter keeps track on where we are in the average array
+  static int frontSensorLeftTotal = 0;                              //This is the total amount
+  static int frontSensorRightTotal = 0;                             //This is the total amount
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
