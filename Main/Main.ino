@@ -110,7 +110,7 @@ void setup() {                                                      //This code 
   pinMode(PAI_SensorPotmeterStuur,    INPUT);                       //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
-  FastLED.setBrightness(250);                                       //Scale brightness
+  FastLED.setBrightness(50);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
@@ -165,27 +165,8 @@ void loop() {                                                       //Keep loopi
   frontSensorLeftTotal  += frontSensorLeftArray [SensorAverageCounter]; //Add the new measurement (to the total)
   frontSensorRightTotal += frontSensorRightArray[SensorAverageCounter]; //Add the new measurement (to the total)
 
-  byte SensorFrontLeft  = frontSensorLeftTotal / SensorAverageOf;   //Get the average of all the steps
-  byte SensorFrontRight = frontSensorRightTotal / SensorAverageOf;  //Get the average of all the steps
-
-
-
-
-
-
-
-
-  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight));
-
-
-
-
-
-
-
-
-
-
+  SensorFrontLeft  = frontSensorLeftTotal / SensorAverageOf;   //Get the average of all the steps
+  SensorFrontRight = frontSensorRightTotal / SensorAverageOf;  //Get the average of all the steps
 
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
@@ -323,14 +304,6 @@ void loop() {                                                       //Keep loopi
   //Steering          = 0    tot 255    = The PWM value right now
   //SteeringReadNow() = -127 tot 127    = The place where the steering is at
   //SteeringGoTo      = -127 tot 127    = Head program asked to go here
-  if (SteeringGoTo < 0) {                                           //If we are going to rotate to the left
-    LED_Left = true;                                                //Set left LED to be on
-  } else if (SteeringGoTo > 0) {                                    //If we are going to rotate to the right
-    LED_Right = true;                                               //Set right LED to be on
-  } else {
-    LED_Left = false;                                               //Set left LED bool to off
-    LED_Right = false;                                              //Set right LED bool to off
-  }
   if (SteeringGoTo == SteeringReadNow()) {                          //If we are where we need to be
     Steering = 0;                                                   //Stop stearing engine
   } else {
@@ -341,6 +314,17 @@ void loop() {                                                       //Keep loopi
     }
     Steering = abs(SensorFrontLeft - SensorFrontRight);             //Set the speed to be the amount of free space between the sensors (and map to 0-255)
   }
+
+
+  Serial.print(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " );
+
+  Serial.println(String(SteeringGoTo));
+
+
+
+
+
+
   if (Steering < SteeringMinimum) {                                 //If we don't need to steer
     SetEngineOn(false);                                             //Set Steering engine on
   } else {
@@ -384,12 +368,17 @@ void SetSteeringOn(bool SteerOn) {                                  //If called 
 }
 
 void SetSteeringLeft(bool State) {                                  //If called with (true) the steer engine will be set to move left (if will only move to the left if also power is applied)
-  byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
+  byte D = 0;                                                           //Create a new byte (Basically the analog StateDirection state)
+  if (State) {
+    D = 1;
+  }
   if (State) {                                                      //If StateDirection needs to be HIGH
     LED_Left = true;                                                //Flag LED_Left to be on
+    LED_Right = false;
   } else {
     D = 1;                                                          //Set analog value to be HIGH
     LED_Left = false;                                               //Flag LED_Left to be on
+    LED_Right = true;
   }
   if (digitalRead(PDO_SteeringReversePoles) == !D) {                //If we need to move forward or backwards but we aren't (Relay inversed)
     SetEngineOn(false);                                             //Make sure the engine if off
@@ -397,6 +386,7 @@ void SetSteeringLeft(bool State) {                                  //If called 
     analogWrite(PDO_SteeringReversePoles2, D * 255);                //Set right direction     (Relay inversed)
     delay(DelayPole);                                               //Wait some time to make sure engine is off
   }
+  SetSteeringOn(true);
 }
 
 void SetEngineOn(bool EngineOn) {                                   //If called with (true) the main engine will be turned on
@@ -463,10 +453,10 @@ void EmergencyPressed() {                                           //If the eme
 void HeadJelle() {                                                  //The code of jelle that calculates in his way where to move to and at what speed and such
   //--------------------Jelle's head--------------------
   static int Z = 0;
-  static byte SensorFreeSpaceLimit = 200;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
-  static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
+  static byte SensorFreeSpaceLimit = 120;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
+  static byte MiniumDifference = 20;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
   static byte MiniumStepsBackwards = 255;                           //C Amount of loops to do backwards
-  static float DividerSteering = 10;                                //D
+  static float DividerSteering = 2;                                 //D
   static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
@@ -490,10 +480,26 @@ void HeadJelle() {                                                  //The code o
     }
   } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) {  //If there is nothing in front of us
     int NewTryEngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;                          //Calculate difference in sensors
+    int X = SensorFrontLeft - SensorFrontRight;
+    if (abs(X) > MiniumDifference)
+    {
+      if (X > 0 and SensorRight < SensorFreeSpaceLimit) or (X < 0 and SensorLeft < SensorFreeSpaceLimit)){
+        
+      } 
+    }
+
+
     if ((abs(abs(NewTryEngineGoTo) - EngineGoTo) > MiniumDifference) or NewTryEngineGoTo > 250) {   //If the change is not to small
       EngineGoTo = map(NewTryEngineGoTo, 255 - SensorFreeSpaceLimit, 255, 0, 255);                  //Set the speed to be the amount of free space between the 2 front sensors (Remapped so we can use the full raneg [remember we don't move when to close])
       if ((NewTryEngineGoTo > 0 and SensorRight < SensorFreeSpaceLimit) or (NewTryEngineGoTo < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
+
+
         SteeringGoTo = (NewTryEngineGoTo / DividerSteering);        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
+
+
+
+
+
       } else {
         SteeringGoTo = 0;                                           //Stop steering
       }
