@@ -54,7 +54,7 @@ static const int TotalLEDs = (48 + 36) * 2;                         //The total 
 static const byte SteeringMinimum = 25;                             //Below this diffrence we won't steer
 static const unsigned int AnimationTimeEmergency = 1000;            //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
 static const unsigned int AnimationTimeBooting = 3000;              //Delay in ms for the animation on start
-static const byte SensorAverageOf = 100;                            //Take a average of this amount of measurements
+static const byte SensorAverageOf = 50;                             //Take a average of this amount of measurements
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
@@ -110,7 +110,7 @@ void setup() {                                                      //This code 
   pinMode(PAI_SensorPotmeterStuur,    INPUT);                       //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
-  FastLED.setBrightness(50);                                       //Scale brightness
+  FastLED.setBrightness(10);                                       //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
@@ -263,9 +263,26 @@ void loop() {                                                       //Keep loopi
     }
   }
   //--------------------Engine control--------------------
-  //Serial.println("GoTo" + String(EngineGoTo) + " Engine" + String(Engine) + " Step" + String(EngineCurrentStep));
+  Serial.println(Engine);
+  
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
+
+
+
+
+
+
+
+      
+      Serial.println("Stop" + String(Engine));
+
+
+
+
+
+
+      
       SetEngineOn(false);                                           //Set Engine off
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
@@ -316,10 +333,7 @@ void loop() {                                                       //Keep loopi
   }
 
 
-  Serial.print(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " );
-
-  Serial.println(String(SteeringGoTo));
-
+  //Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SteeringGoTo));
 
 
 
@@ -452,24 +466,36 @@ void EmergencyPressed() {                                           //If the eme
 
 void HeadJelle() {                                                  //The code of jelle that calculates in his way where to move to and at what speed and such
   //--------------------Jelle's head--------------------
-  static int Z = 0;
+  static byte Z = 0;
   static byte SensorFreeSpaceLimit = 120;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
-  static byte MiniumDifference = 20;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
-  static byte MiniumStepsBackwards = 255;                           //C Amount of loops to do backwards
-  static float DividerSteering = 2;                                 //D
+  static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
+  static int MiniumStepsBackwards = 255;                            //C Amount of loops to do backwards
+  static float DividerSteering = 1;                                 //D
   static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
     if (Z >= MiniumStepsBackwards - 1) {                            //If this is the first step backwards (or rather going to be)
-      EngineGoTo = 0;                                               //Turn engine off (this will forge the engine to break
+      //EngineGoTo = 0;                                               //Turn engine off (this will forge the engine to break
+
+
+
+
+//Remove above line
+
+
+
+
+      
     } else {
       EngineGoTo = map(SensorBack, 0, SensorFreeSpaceLimit, 255, 0) * -1 / MaxBackwardsSpeedDevider; //Set engine state, Will be overwritten when false (Remapped so we can use the full raneg [remember we don't move when to close])
       if (SensorBack < SensorFreeSpaceLimit) {                      //If there is nothing behind us
         if (SensorRight < SensorFreeSpaceLimit) {                   //If there is nothing right of us
           SteeringGoTo = -127;                                      //Steer all the way left
+          EngineGoTo = -100;
         } else {
           if (SensorLeft < SensorFreeSpaceLimit) {                  //If there is nothing left of us
             SteeringGoTo = 127;                                     //Steer all the way right
+            EngineGoTo = -100;
           } else {
             EngineGoTo = 0;                                         //Turn engine off (we can't move backwards)
           }
@@ -479,32 +505,15 @@ void HeadJelle() {                                                  //The code o
       }
     }
   } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) {  //If there is nothing in front of us
-    int NewTryEngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;                          //Calculate difference in sensors
+    EngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;                          //Calculate difference in sensors
+    
     int X = SensorFrontLeft - SensorFrontRight;
-    if (abs(X) > MiniumDifference)
-    {
-      if (X > 0 and SensorRight < SensorFreeSpaceLimit) or (X < 0 and SensorLeft < SensorFreeSpaceLimit)){
-        
-      } 
-    }
-
-
-    if ((abs(abs(NewTryEngineGoTo) - EngineGoTo) > MiniumDifference) or NewTryEngineGoTo > 250) {   //If the change is not to small
-      EngineGoTo = map(NewTryEngineGoTo, 255 - SensorFreeSpaceLimit, 255, 0, 255);                  //Set the speed to be the amount of free space between the 2 front sensors (Remapped so we can use the full raneg [remember we don't move when to close])
-      if ((NewTryEngineGoTo > 0 and SensorRight < SensorFreeSpaceLimit) or (NewTryEngineGoTo < 0 and SensorLeft < SensorFreeSpaceLimit)) { //If there is nothing on that side of us we want to steer to
-
-
-        SteeringGoTo = (NewTryEngineGoTo / DividerSteering);        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
-
-
-
-
-
-      } else {
-        SteeringGoTo = 0;                                           //Stop steering
+    if (abs(X) > MiniumDifference) {
+      if ((X > 0 and SensorRight < SensorFreeSpaceLimit) or (X < 0 and SensorLeft < SensorFreeSpaceLimit)) {
+        SteeringGoTo = -X / DividerSteering;        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
       }
     } else {
-      SteeringGoTo = 0;                                             //Stop steering
+      SteeringGoTo = SteeringReadNow();
     }
   } else {
     Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
