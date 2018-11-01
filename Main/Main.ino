@@ -311,9 +311,12 @@ void loop() {                                                       //Keep loopi
 
 
 
-
-Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SteeringGoTo));
+Serial.println(String(SensorFrontLeft) + " " + String(frontSensorLeftArray [SensorAverageCounter]));
+//Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SteeringGoTo));
 //Here these next line make it blink
+
+
+
 
 
   if (Steering < SteeringMinimum) {                                 //If we don't need to steer
@@ -359,7 +362,7 @@ void SetSteeringOn(bool SteerOn) {                                  //If called 
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
-    analogWrite(PDO_SteeringOnOff, 0);                              //Set the PWM to be off (just to be sure)
+    analogWrite(PWO_Steering, 0);                                   //Set the PWM to be off (just to be sure)
     if (digitalRead(PDO_SteeringOnOff) == LOW) {                    //If the engine is on  (Relay inversed)
       digitalWrite(PDO_SteeringOnOff, HIGH);                        //Turn engine off      (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
@@ -475,19 +478,7 @@ void HeadJelle() {                                                  //The code o
   static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
   if (Z > 0) {                                                      //If we need to move backwards
     Z--;                                                            //Remove one from Z (Z = amounts of steps to do backwards)
-    if (Z >= MiniumStepsBackwards - 1) {                            //If this is the first step backwards (or rather going to be)
-      //EngineGoTo = 0;                                               //Turn engine off (this will forge the engine to break
-
-
-
-
-//Remove above line
-
-
-
-
-      
-    } else {
+    if (Z < MiniumStepsBackwards - 2) {                             //If this is the first step backwards (or rather going to be)
       EngineGoTo = map(SensorBack, 0, SensorFreeSpaceLimit, 255, 0) * -1 / MaxBackwardsSpeedDevider; //Set engine state, Will be overwritten when false (Remapped so we can use the full raneg [remember we don't move when to close])
       if (SensorBack < SensorFreeSpaceLimit) {                      //If there is nothing behind us
         if (SensorRight < SensorFreeSpaceLimit) {                   //If there is nothing right of us
