@@ -168,6 +168,8 @@ void loop() {                                                       //Keep loopi
   SensorFrontLeft  = frontSensorLeftTotal / SensorAverageOf;   //Get the average of all the steps
   SensorFrontRight = frontSensorRightTotal / SensorAverageOf;  //Get the average of all the steps
 
+
+  
   if (Serial.available() > 0) {                                     //https://www.arduino.cc/en/Reference/ASCIIchart to see the asci chart to know what numbers are what
     PcActivity = true;                                              //Set the PcActivity
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
@@ -263,30 +265,11 @@ void loop() {                                                       //Keep loopi
     }
   }
   //--------------------Engine control--------------------
-  Serial.println(Engine);
-  
   if (EngineGoTo == 0) {                                            //If EngineGoTo is off
     if (Engine != EngineGoTo) {                                     //If we are not yet updated
-
-
-
-
-
-
-
-      
-      Serial.println("Stop" + String(Engine));
-
-
-
-
-
-
-      
       SetEngineOn(false);                                           //Set Engine off
       Engine = 0;                                                   //Reset
       EngineFrom = 0;                                               //Reset
-      //EngineGoInSteps = 0;                                          //Reset
     }
   } else {
     if (Engine != EngineGoTo) {                                     //If we are not yet done [Switch engine to right state (turn if off if we do this)]
@@ -296,18 +279,10 @@ void loop() {                                                       //Keep loopi
         SetEngineForward(false);                                    //Set Engine to move backwards
       }
       SetEngineOn(true);                                            //Set Engine on
-
-
-      //TODO FIXME This part of the code should still be tested
-      //This should increase of decrease the Engine PWM each 10ms (Instead of the loop timer)
-
-
       static unsigned long TimeLastTimeB = 0;                       //The last time we run this code
       const static unsigned int TimeDelayB = 10;                    //Delay in ms for each step of the engine (A loop need to minum be this length before next step)
       if (TimeCurrent - TimeLastTimeB >= TimeDelayB) {              //If to much time has passed since last step
         TimeLastTimeB = TimeCurrent;                                //Set last time executed as now
-        digitalWrite(PDO_LEDBlink, !digitalRead(PDO_LEDBlink));     //Let the LED blink so we know the program is running
-
         if (Engine < EngineGoTo) {                                  //If we need to speed up
           Engine++;
         } else {                                                    //If we need to speed down
@@ -333,17 +308,28 @@ void loop() {                                                       //Keep loopi
   }
 
 
-  //Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SteeringGoTo));
 
 
 
+
+Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SteeringGoTo));
+//Here these next line make it blink
 
 
   if (Steering < SteeringMinimum) {                                 //If we don't need to steer
-    SetEngineOn(false);                                             //Set Steering engine on
+    SetSteeringOn(false);                                           //Set Steering engine on
   } else {
-    SetEngineOn(true);                                              //Set Steering engine off
+    SetSteeringOn(true);                                            //Set Steering engine off
   }
+
+
+
+
+
+
+
+
+  
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
   if (PcEverConnected) {
@@ -369,7 +355,7 @@ void loop() {                                                       //Keep loopi
 void SetSteeringOn(bool SteerOn) {                                  //If called with (true) the steering motor will be turned on
   if (SteerOn) {                                                    //If we need to steer
     if (digitalRead(PDO_SteeringOnOff) == HIGH) {                   //If the engine is off (Relay inversed)
-      analogWrite(PDO_SteeringOnOff, LOW);                          //Turn engine on       (Relay inversed)
+      digitalWrite(PDO_SteeringOnOff, LOW);                         //Turn engine on       (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
@@ -404,13 +390,28 @@ void SetSteeringLeft(bool State) {                                  //If called 
 }
 
 void SetEngineOn(bool EngineOn) {                                   //If called with (true) the main engine will be turned on
+  
+  
+  
+  
+  
+  /*
+   * SetEngineForward calls SetEngineOn
+   * 
+   * SetEngineOn makes the relay blink
+   */
+  
+  
+  
+  
+  //Serial.println(EngineOn);
   if (EngineOn) {                                                   //If we need to drive
     if (digitalRead(PDO_MotorOnOff) == HIGH) {                      //If the engine is off    (Relay inversed)
       if (digitalRead(PDO_MotorBrakeAnchor) == LOW) {               //If Engine Shorted       (Relay inversed)
         digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Don't short the engine  (Relay inversed)
         delay(DelayAncher);                                         //Wait some time
       }
-      analogWrite(PDO_MotorOnOff, LOW);                             //Turn engine on          (Relay inversed)
+      digitalWrite(PDO_MotorOnOff, LOW);                             //Turn engine on          (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
@@ -426,7 +427,7 @@ void SetEngineOn(bool EngineOn) {                                   //If called 
   }
 }
 
-void SetEngineForward(bool State) {                                 //If called with (true) the main engine will be set to move forward
+void SetEngineForward(bool State) {                                 //If called with (true) the main engine will be set to move forward  
   byte D;                                                           //Create a new byte (Basically the analog StateDirection state)
   if (State) {                                                      //If StateDirection needs to be HIGH
     LED_Forwards = true;                                            //Set forwards driving LED on
