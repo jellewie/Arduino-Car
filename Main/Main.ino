@@ -91,6 +91,7 @@ bool LED_Left;                                                      //If the lef
 bool LED_Right;                                                     //If the right LEDS needs to be on
 bool LED_Forwards;                                                  //If the driving LEDS needs to be on (if not we are braking)
 bool LED_Emergency;                                                 //If the emergency LEDS needs to be on
+bool LEDDisco;                                                      //if the Disco LEDS needs to be on
 
 void setup() {                                                      //This code runs once on start-up
   pinMode(PDO_MotorOnOff,             OUTPUT);                      //  (A) Sometimes the Arduino needs to know what pins are OUTPUT and what are INPUT, since it could get confused and create an error. So it's set manual here
@@ -199,7 +200,7 @@ void loop() {                                                       //Keep loopi
 
 
 
-  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorRight) + " " + String(SensorBack) + " " + String(SensorLeft))
+  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorRight) + " " + String(SensorBack) + " " + String(SensorLeft));
 
 
 

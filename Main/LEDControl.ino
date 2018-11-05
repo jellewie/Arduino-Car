@@ -26,7 +26,6 @@ void LEDControl() {                                                 //Code that 
   static bool LEDEmergencyWasOn;                                    //^^
   static bool LEDDebugWasOn;                                        //^^
   static bool LEDPcEverConnectedWasOn;                              //^^
-  static bool LEDDisco;                                             //^^
   static byte PositionLeftFront = 32;                               //Start of front left turning light
   static byte PositionLeftBack = 136;                               //Start of back left turning light
   static byte LeftLength = 25;                                      //Total length
