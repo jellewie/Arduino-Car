@@ -1,22 +1,10 @@
 /*
   Program written by JelleWho as a school project for the self driving car
 
-
   =====TODO=====
   TODO FIXME [MID] Add a nice engine PWM down curve
-  TODO FIXME [LOW] Update LED only if the array changed? Would this be faster?
-  TODO FIXME [LOW] Change LED overwrite (it should display manual control)
   TEST [HIGH] Invert Relay 1-8 since LOW=ON
-
-  TEST [HIGH] if on startup power would be send to the engine. the relays will blow if this happens! so test first
-  Thoughts of Jelle on this issue: (It would be fine, but checking doesn't hurt)
-      1) The ON/OFF relay will turn on
-      2) The SHORT ENGING relay will turn on
-      3) The PWM is not set, so no voltage would be set
-      4) In boot both above names relays will be turned off (we are talking about <ms here I think)
-
   TODO FIXME [HIGH] change SteeringReadNow() mapping . We can also do an /2 of the speed in JelleHead() to responce slower
-  TODO FIXME [MID] I think the map of the Emergency time led stuff needs to have the MAP fuction tweaked. Since it can be we skip the last step and some LEDS keep being on
 
   Kown glitches:
   - After approximately 50 days of continues time the emergency animation could play again (overflow of TimeStart) (LONG value, and when it's is 0 we start the animation)
@@ -25,7 +13,7 @@
 #include "interrupt.h"                                              //Include the interrupt file so we can use interrupts
 //Progam includes all .INO files into this one, so we include "LEDControl.INO" automaticly
 
-//static const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ name>
+//static const (read only) █ <variable type> https://www.arduino.cc/reference/en/#variables █ <Pin ║ Digital, Analog, pWn ║ Input, Output║ _name>
 static const byte PWO_LED = 5;                                      //Where the <LED strip> is connected to
 static const byte PWO_Motor = 6;                                    //Frequency controller motor relay
 static const byte PWO_Steering = 7;                                 //Frequency controller steering relay
@@ -39,12 +27,12 @@ static const byte PDO_SteeringReversePoles = 31;          //K5      //Reverse po
 static const byte PDO_MotorReversePoles2 = 35;            //K7      //Reverse polarity motor relay
 static const byte PDO_SteeringReversePoles2 = 37;         //K8      //Reverse polarity steering relay
 static const byte PDI_Emergency = 53;                               //Emergency button feedback
-static const byte PAI_SensorFrontLeft = 0;
-static const byte PAI_SensorFrontRight = 1;
-static const byte PAI_SensorRight = 2;
-static const byte PAI_SensorBack = 3;
-static const byte PAI_SensorLeft = 4;
-static const byte PAI_SensorPotmeterStuur = 5;
+static const byte PAI_SensorFrontLeft = 0;                          //To which analog pin the sensor is connected to
+static const byte PAI_SensorFrontRight = 1;                         //^^
+static const byte PAI_SensorRight = 2;                              //^^
+static const byte PAI_SensorBack = 3;                               //^^
+static const byte PAI_SensorLeft = 4;                               //^^
+static const byte PAI_SensorPotmeterStuur = 5;                      //^^
 
 //Just some configurable things
 static const int DelayPole = 50;                                    //The delay after/for the reverse-ment of poles (reverse engine moment)
@@ -55,7 +43,7 @@ static const byte SteeringMinimum = 25;                             //Below this
 static const unsigned int AnimationTimeEmergency = 1000;            //Delay in ms for the animation of the reinitialize of the program (Emergency has been lifted)
 static const unsigned int AnimationTimeBooting = 3000;              //Delay in ms for the animation on start
 static const byte SensorAverageOf = 50;                             //Take a average of this amount of measurements
-const int SteeringSwitchDelayCounterBase = 50;
+static const int SteeringSwitchDelayCounterBase = 50;
 
 //Just some numbers we need to transfer around..
 CRGB LEDs[TotalLEDs];                                               //This is an array of LEDs. One item for each LED in your strip.
@@ -65,22 +53,18 @@ byte SensorFrontRight;                                              //^^
 byte SensorRight;                                                   //^^
 byte SensorLeft;                                                    //^^
 byte SensorBack;                                                    //^^
-
-int SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;    //
-
 byte ArraySensorFrontLeft[SensorAverageOf];                         //Create the array for the Front Left sensor
 byte ArraySensorFrontRight[SensorAverageOf];                        //Create the array for the Front Right sensor
 byte ArraySensorRight[SensorAverageOf];                             //Create the array for the Right sensor
 byte ArraySensorLeft[SensorAverageOf];                              //Create the array for the Left sensor
 byte ArraySensorBack[SensorAverageOf];                              //Create the array for the Back sensor
-
+int SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;    //Steering timeout, so we can only steer every X loops
 int Engine;                                                         //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
 int EngineGoTo;                                                     //Engine status stop position
 int Steering;                                                       //Steering PWM value
 int SteeringFrom;                                                   //Steering status start position
 int SteeringGoTo;                                                   //Steering status stop position
-
 bool Emergency;                                                     //The emergency button state
 bool OverWrite;                                                     //If we need to overwrite the self thinking
 bool PcEverConnected;                                               //If we ever found the PC (and need to send the messages)
@@ -144,13 +128,11 @@ void loop() {                                                       //Keep loopi
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
   static unsigned long TimeLastTime = 0;                            //The last time we run this code
   static byte SensorAverageCounter = 0;                             //This counter keeps track on where we are in the average array
-
   static int TotalSensorFrontLeft = 0;                              //This is the total amount of the measurements
   static int TotalSensorFrontRight = 0;                             //^
   static int TotalSensorRight = 0;                                  //^
   static int TotalSensorLeft = 0;                                   //^
   static int TotalSensorBack = 0;                                   //^
-
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
@@ -195,17 +177,7 @@ void loop() {                                                       //Keep loopi
 
 
 
-
-
-
-
-
   Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorRight) + " " + String(SensorBack) + " " + String(SensorLeft));
-
-
-
-
-
 
 
 
@@ -334,9 +306,9 @@ void loop() {                                                       //Keep loopi
       if (TimeCurrent - TimeLastTimeB >= TimeDelayB) {              //If to much time has passed since last step
         TimeLastTimeB = TimeCurrent;                                //Set last time executed as now
         if (Engine < EngineGoTo) {                                  //If we need to speed up
-          Engine++;
+          Engine++;                                                 //Add 1 to the engine speed
         } else {                                                    //If we need to speed down
-          Engine--;                                                 //remove 1 to the engine speed
+          Engine--;                                                 //Remove 1 to the engine speed
         }
       }
     }
@@ -346,49 +318,29 @@ void loop() {                                                       //Keep loopi
   //Steering          = 0    tot 255    = The PWM value right now
   //SteeringReadNow() = -127 tot 127    = The place where the steering is at
   //SteeringGoTo      = -127 tot 127    = Head program asked to go here
-
-
-  if (SteeringSwitchDelayCounter > 0) {
-    SteeringSwitchDelayCounter--;
+  if (SteeringSwitchDelayCounter > 0) {                             //If we need to wait loops before we steer again
+    SteeringSwitchDelayCounter--;                                   //Remove 1 from the value (This loop is run)
   }
-
-
-
-
   if (SteeringGoTo == SteeringReadNow()) {                          //If we are where we need to be
     Steering = 0;                                                   //Stop stearing engine
   } else {
     Steering = abs(SensorFrontLeft - SensorFrontRight);             //Set the speed to be the amount of free space between the sensors (and map to 0-255)
-    if (Steering > SteeringMinimum)
+    if (Steering > SteeringMinimum)                                 //If it's more than noise
     {
-      if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
-        SetSteeringLeft(true);                                        //Steer to the left
-      } else {                                                        //If we go left (Not right, not straight; so left)
-        SetSteeringLeft(false);                                       //Steer to the right
-      }
-
-
-      if (SteeringSwitchDelayCounter <= 0) {
-        SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;
-        SetSteeringOn(true);                                           //Set Steering engine on
+      if (SteeringSwitchDelayCounter <= 0) {                        //If it's time to update the relay
+        if (SteeringGoTo > SteeringReadNow()) {                     //If we go right
+          SetSteeringLeft(true);                                    //Steer to the left
+        } else {                                                    //If we go left (Not right, not straight; so left)
+          SetSteeringLeft(false);                                   //Steer to the right
+        }
+        SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;//Reset counter (so we wont update the realys for x loops)
+        SetSteeringOn(true);                                        //Set Steering engine on
       }
     }
   }
-
-
-
-
-
-  Serial.println(String(SteeringGoTo) + " " + String(SteeringReadNow()));
-  //Here these next line make it blink
-
-
-
-
-
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
   //--------------------PC communication--------------------
-  if (PcEverConnected) {
+  if (PcEverConnected) {                                            //If the PC is connected
     String EmergencyButtonState = "!";                              //Create a string (and set it to warning, will be overwritten if its save)
     if (Emergency == 1) {                                           //Check if the emergency button isn't pressed
       EmergencyButtonState = "~";                                   //Set status of emergency button to save
@@ -405,7 +357,7 @@ void loop() {                                                       //Keep loopi
     }
   }
   //--------------------LED Control--------------------
-  LEDControl();
+  LEDControl();                                                     //Call LED control and update the LED's
 }
 
 void SetSteeringOn(bool SteerOn) {                                  //If called with (true) the steering motor will be turned on
@@ -426,19 +378,19 @@ void SetSteeringOn(bool SteerOn) {                                  //If called 
 void SetSteeringLeft(bool State) {                                  //If called with (true) the steer engine will be set to move left (if will only move to the left if also power is applied)
   if (State) {                                                      //If StateDirection needs to be HIGH
     LED_Left = true;                                                //Flag LED_Left to be on
-    LED_Right = false;
+    LED_Right = false;                                              //Flag LED_Right to be off
     if (digitalRead(PDO_SteeringReversePoles) == LOW) {             //If we need to move forward or backwards but we aren't (Relay inversed)
       SetSteeringOn(false);                                         //Make sure the Steering engine if off
-      delay(DelayPole);
+      delay(DelayPole);                                             //Wait some time
       digitalWrite(PDO_SteeringReversePoles, HIGH);                 //Set right direction     (Relay inversed)
       digitalWrite(PDO_SteeringReversePoles2, HIGH);                //Set right direction     (Relay inversed)
     }
   } else {
-    LED_Left = false;                                               //Flag LED_Left to be on
-    LED_Right = true;
+    LED_Left = false;                                               //Flag LED_Left to be off
+    LED_Right = true;                                               //Flag LED_Right to be on
     if (digitalRead(PDO_SteeringReversePoles) == HIGH) {            //If we need to move forward or backwards but we aren't (Relay inversed)
       SetSteeringOn(false);                                         //Make sure the Steering engine if off
-      delay(DelayPole);
+      delay(DelayPole);                                             //Wait some time
       digitalWrite(PDO_SteeringReversePoles, LOW);                  //Set right direction     (Relay inversed)
       digitalWrite(PDO_SteeringReversePoles2, LOW);                 //Set right direction     (Relay inversed)
     }
@@ -452,7 +404,7 @@ void SetEngineOn(bool EngineOn) {                                   //If called 
         digitalWrite(PDO_MotorBrakeAnchor, HIGH);                   //Don't short the engine  (Relay inversed)
         delay(DelayAncher);                                         //Wait some time
       }
-      digitalWrite(PDO_MotorOnOff, LOW);                             //Turn engine on          (Relay inversed)
+      digitalWrite(PDO_MotorOnOff, LOW);                            //Turn engine on          (Relay inversed)
       delay(DelayAncher);                                           //Wait some time
     }
   } else {
@@ -508,7 +460,7 @@ void EmergencyPressed() {                                           //If the eme
 
 void HeadJelle() {                                                  //The code of jelle that calculates in his way where to move to and at what speed and such
   //--------------------Jelle's head--------------------
-  static byte Z = 0;
+  static byte Z = 0;                                                //Set amount of steps to to backwards as 0
   static byte SensorFreeSpaceLimit = 120;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
   static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
   static int MiniumStepsBackwards = 255;                            //C Amount of loops to do backwards
@@ -521,11 +473,11 @@ void HeadJelle() {                                                  //The code o
       if (SensorBack < SensorFreeSpaceLimit) {                      //If there is nothing behind us
         if (SensorRight < SensorFreeSpaceLimit) {                   //If there is nothing right of us
           SteeringGoTo = -127;                                      //Steer all the way left
-          EngineGoTo = -100;
+          EngineGoTo = -127;                                        //Set engine to move backwards
         } else {
           if (SensorLeft < SensorFreeSpaceLimit) {                  //If there is nothing left of us
             SteeringGoTo = 127;                                     //Steer all the way right
-            EngineGoTo = -100;
+            EngineGoTo = -127;                                      //Set engine to move backwards
           } else {
             EngineGoTo = 0;                                         //Turn engine off (we can't move backwards)
           }
@@ -535,21 +487,21 @@ void HeadJelle() {                                                  //The code o
       }
     }
   } else if (SensorFrontLeft < SensorFreeSpaceLimit and SensorFrontRight < SensorFreeSpaceLimit) {  //If there is nothing in front of us
-    EngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;                          //Calculate difference in sensors
+    EngineGoTo = (510 - SensorFrontLeft - SensorFrontRight) / 2;    //Calculate difference in sensors
 
     int X = SensorFrontLeft - SensorFrontRight;
     if (abs(X) > MiniumDifference) {
       if ((X > 0 and SensorRight < SensorFreeSpaceLimit) or (X < 0 and SensorLeft < SensorFreeSpaceLimit)) {
-        SteeringGoTo = -X / DividerSteering;        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
+        SteeringGoTo = -X / DividerSteering;                        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
       }
     } else {
-      SteeringGoTo = SteeringReadNow();
+      SteeringGoTo = SteeringReadNow();                             //Stop with steering, stay where you are
     }
   } else {
     Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
   }
-  if (EngineGoTo > 254) {
-    EngineGoTo = 255;
+  if (EngineGoTo > 254) {                                           //If it it somehow bigger than a byte
+    EngineGoTo = 255;                                               //Set it to be a byte
   }
 }
 //this is the end, hope you had fun
