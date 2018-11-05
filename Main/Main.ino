@@ -68,8 +68,11 @@ byte SensorBack;                                                    //^^
 
 int SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;    //
 
-byte frontSensorLeftArray[SensorAverageOf];                         //Create the array for the left sensor
-byte frontSensorRightArray[SensorAverageOf];                        //Create the array for the right sensor
+byte ArraySensorFrontLeft[SensorAverageOf];                         //Create the array for the Front Left sensor
+byte ArraySensorFrontRight[SensorAverageOf];                        //Create the array for the Front Right sensor
+byte ArraySensorRight[SensorAverageOf];                             //Create the array for the Right sensor
+byte ArraySensorLeft[SensorAverageOf];                              //Create the array for the Left sensor
+byte ArraySensorBack[SensorAverageOf];                              //Create the array for the Back sensor
 
 int Engine;                                                         //Engine PWM value
 int EngineFrom;                                                     //Engine status start position
@@ -113,7 +116,7 @@ void setup() {                                                      //This code 
   pinMode(PAI_SensorPotmeterStuur,    INPUT);                       //^^
   Serial.begin(9600);                                               //Opens serial port (to pc), sets data rate to 9600 bps
   FastLED.addLeds<WS2812B, PWO_LED, GRB>(LEDs, TotalLEDs);          //Set the LED type and such
-  FastLED.setBrightness(10);                                       //Scale brightness
+  FastLED.setBrightness(80);                                        //Scale brightness
   fill_solid(&(LEDs[0]), TotalLEDs, CRGB(0, 0, 255));               //Set the whole LED strip to be blue (startup animation)
   FastLED.show();                                                   //Update
   unsigned long TimeStart = millis();                               //Set the StartTime as currenttime
@@ -136,14 +139,17 @@ void setup() {                                                      //This code 
 
 void loop() {                                                       //Keep looping the next code
   //Just some things we only need in this loop
-  //static int EngineGoInSteps;                                       //The amount to steps to execute the move in
-  //static int EngineCurrentStep;                                     //The current step we are in
   static String LastPCStateSteering = "";                           //Last steering position send to the PC, so this is what the PC knows
   static String LastPCStateEngine = "";                             //Last engine position send to the PC, so this is what the PC knows
   static unsigned long TimeLastTime = 0;                            //The last time we run this code
   static byte SensorAverageCounter = 0;                             //This counter keeps track on where we are in the average array
-  static int frontSensorLeftTotal = 0;                              //This is the total amount
-  static int frontSensorRightTotal = 0;                             //This is the total amount
+
+  static int TotalSensorFrontLeft = 0;                              //This is the total amount of the measurements
+  static int TotalSensorFrontRight = 0;                             //^
+  static int TotalSensorRight = 0;                                  //^
+  static int TotalSensorLeft = 0;                                   //^
+  static int TotalSensorBack = 0;                                   //^
+
   const static unsigned int TimeDelay = 1;                          //Delay in ms for the blink, When a oscilloscope is attacked to pin 13, the real loop delay can be
   unsigned long TimeCurrent = millis();                             //Get currenttime
   unsigned long TimeStart = 1;                                      //A timer to keep the Emergency active for some time (just to remove hiccups in the contact) if not 0 we need to wait this amount of ms
@@ -155,21 +161,56 @@ void loop() {                                                       //Keep loopi
   SensorRight      = map(analogRead(PAI_SensorRight),      0, 672, 0, 255); //Get the sensor data (so it would be consistence though this loop) (There being remapped to the max of a byte range)
   SensorLeft       = map(analogRead(PAI_SensorLeft),       0, 672, 0, 255); //^^
   SensorBack       = map(analogRead(PAI_SensorBack),       0, 672, 0, 255); //^^
-
   if (SensorAverageCounter < SensorAverageOf - 1) {                 //-1 since arrays starts at 0 (else we would have a overflow error, writting to [100] while [99] is entry 100)
     SensorAverageCounter++;                                         //Add one to the counter so next place would be 1 higher
   } else {
     SensorAverageCounter = 0;                                       //Reset counter
   }
-  frontSensorLeftTotal  -= frontSensorLeftArray [SensorAverageCounter]; //Remove the old measurements of x steps ago (to the total)
-  frontSensorRightTotal -= frontSensorRightArray[SensorAverageCounter]; //Remove the old measurements of x steps ago (to the total)
-  frontSensorLeftArray[SensorAverageCounter]  = map(analogRead(PAI_SensorFrontLeft),  0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
-  frontSensorRightArray[SensorAverageCounter] = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
-  frontSensorLeftTotal  += frontSensorLeftArray [SensorAverageCounter]; //Add the new measurement (to the total)
-  frontSensorRightTotal += frontSensorRightArray[SensorAverageCounter]; //Add the new measurement (to the total)
+  TotalSensorFrontLeft  -= ArraySensorFrontLeft [SensorAverageCounter]; //Remove the old measurements of x steps ago from the total
+  TotalSensorFrontRight -= ArraySensorFrontRight[SensorAverageCounter]; //^
+  TotalSensorRight      -= ArraySensorRight     [SensorAverageCounter]; //^
+  TotalSensorFrontRight -= ArraySensorFrontRight[SensorAverageCounter]; //^
+  TotalSensorBack       -= ArraySensorBack      [SensorAverageCounter]; //^
+  ArraySensorFrontLeft [SensorAverageCounter] = map(analogRead(PAI_SensorFrontLeft) , 0, 672, 0, 255); //Get the current measurement and add it in its place in it's array
+  ArraySensorFrontRight[SensorAverageCounter] = map(analogRead(PAI_SensorFrontRight), 0, 672, 0, 255); //^
+  ArraySensorRight     [SensorAverageCounter] = map(analogRead(PAI_SensorRight)     , 0, 672, 0, 255); //^
+  ArraySensorLeft      [SensorAverageCounter] = map(analogRead(PAI_SensorLeft)      , 0, 672, 0, 255); //^
+  ArraySensorBack      [SensorAverageCounter] = map(analogRead(PAI_SensorBack)      , 0, 672, 0, 255); //^
+  TotalSensorFrontLeft  += ArraySensorFrontLeft [SensorAverageCounter]; //Add the new measurement to the total
+  TotalSensorFrontRight += ArraySensorFrontRight[SensorAverageCounter]; //^
+  TotalSensorRight      += ArraySensorRight     [SensorAverageCounter]; //^
+  TotalSensorLeft       += ArraySensorLeft      [SensorAverageCounter]; //^
+  TotalSensorBack       += ArraySensorBack      [SensorAverageCounter]; //^
+  SensorFrontLeft  = TotalSensorFrontLeft  / SensorAverageOf;       //Get the average of all the steps
+  SensorFrontRight = TotalSensorFrontRight / SensorAverageOf;       //^
+  SensorRight      = TotalSensorRight      / SensorAverageOf;       //^
+  SensorLeft       = TotalSensorLeft       / SensorAverageOf;       //^
+  SensorBack       = TotalSensorBack       / SensorAverageOf;       //^
 
-  SensorFrontLeft  = frontSensorLeftTotal / SensorAverageOf;   //Get the average of all the steps
-  SensorFrontRight = frontSensorRightTotal / SensorAverageOf;  //Get the average of all the steps
+
+
+
+
+
+
+
+
+
+
+
+
+  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(SensorRight) + " " + String(SensorBack) + " " + String(SensorLeft))
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -382,7 +423,7 @@ void SetSteeringLeft(bool State) {                                  //If called 
     LED_Right = false;
     if (digitalRead(PDO_SteeringReversePoles) == LOW) {             //If we need to move forward or backwards but we aren't (Relay inversed)
       SetSteeringOn(false);                                         //Make sure the Steering engine if off
-      delay(DelayPole);   
+      delay(DelayPole);
       digitalWrite(PDO_SteeringReversePoles, HIGH);                 //Set right direction     (Relay inversed)
       digitalWrite(PDO_SteeringReversePoles2, HIGH);                //Set right direction     (Relay inversed)
     }
@@ -391,7 +432,7 @@ void SetSteeringLeft(bool State) {                                  //If called 
     LED_Right = true;
     if (digitalRead(PDO_SteeringReversePoles) == HIGH) {            //If we need to move forward or backwards but we aren't (Relay inversed)
       SetSteeringOn(false);                                         //Make sure the Steering engine if off
-      delay(DelayPole);   
+      delay(DelayPole);
       digitalWrite(PDO_SteeringReversePoles, LOW);                  //Set right direction     (Relay inversed)
       digitalWrite(PDO_SteeringReversePoles2, LOW);                 //Set right direction     (Relay inversed)
     }

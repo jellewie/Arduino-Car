@@ -183,8 +183,7 @@ void LEDControl() {                                                 //Code that 
     LEDs[167] = CRGB(0, 255, 0);                                    //Set last LED to be lid
     UpdateLEDs = true;                                              //Update
   }
-  if (Retrieved[3] == 42) {                                         //If we need an Retrieved[3] (42 = '*')
-    LEDDisco = true;
+  if (LEDDisco) {                                                   //If we need a disco
     static byte gHue;                                               //Create a new variable
     EVERY_N_MILLISECONDS(DiscoSpeed) {                              //Do if 20 ms have pasted
       gHue++;                                                       //Slowly cycle the "base colour" through the rainbow

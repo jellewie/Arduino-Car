@@ -112,12 +112,8 @@ void loop() {                                                       //Keep loopi
         OverWrite = false;
         break;
       case 46:                                                      //.
-        if (TempDataRetrieved == 42) {
-          TempDataRetrieved = 0;
-        } else {
-          TempDataRetrieved = 42;
-        }
-        Serial.println("Retrieved[3] " + String(TempDataRetrieved));
+        LEDDisco = !LEDDisco;
+        Serial.println("LEDDisco " + String(LEDDisco));
         break;
       case 49:                                                      //1
         PcEverConnected = !PcEverConnected;
