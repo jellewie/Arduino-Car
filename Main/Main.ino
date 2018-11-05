@@ -219,16 +219,16 @@ void loop() {                                                       //Keep loopi
     PcEverConnected = true;                                         //We have found an PC, so give feedback about states from now on
     /*
       PC -> Arduino
-      1st Byte = '~'                                            = This is the emergency button state where '~' it's save (Anything else is not save)
-      2nd Byte = 'M' or 'm' or 'S' or 'A' or 'D' or 'd' or 'E'  = (opt1) What Value need to be changed; Motor, motor reversed, Steering, Auto mode on, Debug on, debug off. Or 'E' for Error in data please resend
-      3rd Byte = '0 to 255'                                     = (opt1) Value
-      4th Byte = '#'                                            = (opt1)
+      1st Byte = '~'                                                  = This is the emergency button state where '~' it's save (Anything else is not save)
+      2nd Byte = 'M' or 'm' or 'S' or 'A' or 'D' or 'd' or 'E' or 'B' = (opt1) What Value need to be changed; Motor, motor reversed, Steering, Auto mode on, Debug on, debug off. Or 'E' for Error in data please resend, 'B' for brightness LED change
+      3rd Byte = '0 to 255'                                           = (opt1) Value
+      4th Byte = '#' or '*'                                           = (opt1) End of int (or disco mode)
 
       Arduino -> PC
-      1st Byte = '['                                            = Start
-      2nd Byte = 'M' or 'S' or [E]                              = What Value is comming. Or 'E' for Error in data please resend
-      3rd Byte = '-255 to 255'                                  = (opt1) Value
-      4th Byte = ']'                                            = (opt1) Stop
+      1st Byte = '['                                                  = Start
+      2nd Byte = 'M' or 'S' or [E]                                    = What Value is comming. Or 'E' for Error in data please resend
+      3rd Byte = '-255 to 255'                                        = (opt1) Value
+      4th Byte = ']'                                                  = (opt1) Stop
     */
     Retrieved[0] = Serial.read();                                   //Get Emergency info (1 = it's fine, !1 WE ARE ON FIRE!)
     Retrieved[1] = Serial.read();                                   //Read next data
@@ -250,7 +250,7 @@ void loop() {                                                       //Keep loopi
     } else {
       if (Retrieved[1] == 'R') {                                    //If "82" retrieved (Rotate)
         OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
-        SteeringGoTo = Retrieved[3];                                //Set where to rotate to
+        SteeringGoTo = Retrieved[2];                                //Set where to rotate to
       } else if (Retrieved[1] == 'M') {                             //If "77" retrieved (Motor)
         OverWrite = true;                                           //Set the OverWrite to true to OverWrite the thinking of the Arduino
         EngineGoTo = Retrieved[2];                                  //Set the EngineGoTo state
@@ -263,6 +263,11 @@ void loop() {                                                       //Keep loopi
         LED_SensorDebug = true;                                     //Debug mode on
       } else if (Retrieved[1] == 'd') {                             //If "100" retrieved (Debug)
         LED_SensorDebug = false;                                    //Debug mode off
+      } else if (Retrieved[1] == 'B') {                             //If we need to change the brightness
+        FastLED.setBrightness(Retrieved[2]);                        //Set the scale of the brightness
+      }
+      if (Retrieved[3] == '*') {                                    //If "42" retrieved (Disco)
+        LEDDisco = !LEDDisco;                                       //Toggle disco mode
       }
       LastPCStateEngine = "";                                       //Fuck up LastPCStateEngine so it will resend it
       LastPCStateSteering = "";                                     //Fuck up LastPCStateSteering so it will resend it
