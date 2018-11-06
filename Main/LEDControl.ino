@@ -184,7 +184,7 @@ void LEDControl() {                                                 //Code that 
   }
   if (LEDDisco) {                                                   //If we need a disco
     static byte gHue;                                               //Create a new variable
-    EVERY_N_MILLISECONDS(DiscoSpeed) {                              //Do if 20 ms have pasted
+    EVERY_N_MILLISECONDS(DiscoSpeed) {                              //Do if x ms have pasted
       gHue++;                                                       //Slowly cycle the "base colour" through the rainbow
     }
     fill_rainbow(LEDs, TotalLEDs, gHue, 7);                         //Do some funny stuff
