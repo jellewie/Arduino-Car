@@ -323,6 +323,6 @@ void loop() {
     MSGValueOLD = MSGValue;
   }
   
-  delay(500);
-  FastLED.show();
+  delay(250);
+  LEDControl();
 }//this is the end, hope you had fun
