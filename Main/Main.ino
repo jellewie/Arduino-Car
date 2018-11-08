@@ -226,7 +226,7 @@ void loop() {                                                       //Keep loopi
   if (Retrieved[0] != 126 || Emergency == 0) {                      //Are we on fire? (1 = it's fine, 0 = WE ARE ON FIRE!)
     //CALL THE FIREDEPARMENT AND STOP WHAT WE ARE DOING WE ARE ON FIRE!
     LED_Emergency = true;                                           //Set the emergency LED on
-    SteeringGoTo = SteeringReadNow();                               //Stop with rotating, keep where ever it is at this moment
+    SteeringGoTo = 0;                                               //Stop with rotating, keep where ever it is at this moment
     EngineGoTo = 0;                                                 //Set EngineGoTo to 0
     TimeStart = 0;                                                  //Reset so the Emergency button will keep being active for X time after released
   } else {
@@ -297,26 +297,26 @@ void loop() {                                                       //Keep loopi
   if (SteeringSwitchDelayCounter > 0) {                             //If we need to wait loops before we steer again
     SteeringSwitchDelayCounter--;                                   //Remove 1 from the value (This loop is run)
   }
-  if (SteeringGoTo == SteeringReadNow()) {                          //If we are where we need to be
+  int now = SteeringReadNow();
+  if (SteeringGoTo < now + 15 and SteeringGoTo > now - 15 or SteeringGoTo == 0) {          //If we are where we need to be
     Steering = 0;                                                   //Stop stearing engine
+    SetSteeringOn(false);                                            //Set Steering engine on
   } else {
-    Steering = abs(SensorFrontLeft - SensorFrontRight);             //Set the speed to be the amount of free space between the sensors (and map to 0-255)
-    if (Steering > SteeringMinimum)                                 //If it's more than noise
-    {
-      if (SteeringSwitchDelayCounter <= 0) {                        //If it's time to update the relay
-        if (SteeringGoTo > SteeringReadNow()) {                     //If we go right
-          SetSteeringLeft(true);                                    //Steer to the left
-        } else {                                                    //If we go left (Not right, not straight; so left)
-          SetSteeringLeft(false);                                   //Steer to the right
-        }
-        SteeringSwitchDelayCounter = SteeringSwitchDelayCounterBase;//Reset counter (so we wont update the realys for x loops)
-        SetSteeringOn(true);                                        //Set Steering engine on
-      }
+    if (SteeringGoTo > SteeringReadNow()) {                         //If we go right
+      SetSteeringLeft(true);                                        //Steer to the left
+    } else {                                                        //If we go left (Not right, not straight; so left)
+      SetSteeringLeft(false);                                       //Steer to the right
     }
+    Steering = SteeringGoTo - now;
+    SetSteeringOn(true);                                            //Set Steering engine on
   }
   analogWrite(PWO_Steering, Steering);                              //Write the value to the engine
 
-  Serial.println(String(SensorFrontLeft) + " " + String(SensorFrontRight) + " " + String(Engine) + " " + String(EngineGoTo)) + " " + String(SteeringGoTo) +  " " + String(Steering);
+  Serial.println(String(SteeringGoTo) + " " + String(now) +  " " + String(Steering) + " " + String(SensorFrontLeft - SensorFrontRight));
+
+
+
+
 
   //--------------------PC communication--------------------
   if (PcEverConnected) {                                            //If the PC is connected
@@ -445,7 +445,7 @@ void HeadJelle() {                                                  //The code o
   //--------------------Jelle's head--------------------
   static byte Z = 0;                                                //Set amount of steps to to backwards as 0
   static byte SensorFreeSpaceLimit = 120;                           //A (Dont forget that Sensor 255=It's a hit, and 0=nothing to see!)
-  static byte MiniumDifference = 10;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
+  static byte MiniumDifference = 20;                                //B Minium diffrence for updating the GOTO (else we would change speed to much)
   static int MiniumStepsBackwards = 255;                            //C Amount of loops to do backwards
   static float DividerSteering = 1;                                 //D
   static byte MaxBackwardsSpeedDevider = 4;                         //E Max speed divided by this is the max speed we can drive backward
@@ -477,7 +477,7 @@ void HeadJelle() {                                                  //The code o
         SteeringGoTo = -X / DividerSteering;                        //Steer to that side (with the intensity of 'NewTryEngineGoTo/DividerSteering'
       }
     } else {
-      SteeringGoTo = SteeringReadNow();                             //Stop with steering, stay where you are
+      SteeringGoTo = X;                                             //Stop with steering, stay where you are
     }
   } else {
     Z = MiniumStepsBackwards;                                       //Tell the code that we need to go backwards from now on
@@ -487,3 +487,5 @@ void HeadJelle() {                                                  //The code o
   }
 }
 //this is the end, hope you had fun
+
+
